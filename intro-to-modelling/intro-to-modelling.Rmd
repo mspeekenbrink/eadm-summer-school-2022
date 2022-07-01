@@ -1,0 +1,343 @@
+---
+title: "Introduction to computational modelling"
+author: "Maarten Speekenbrink"
+institute: "University College London"
+date: "`r Sys.Date()`"
+bibliography: refs.bib
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(fig.retina = 3, dev='svg')
+```
+
+```{r bibtex, include=FALSE}
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           cite.style = "authoryear",
+           style = "markdown",
+           hyperlink = FALSE,
+           dashed = FALSE,
+           max.names = 2)
+myBib <- ReadBib("refs.bib", check = FALSE)
+mcitep <- function(key, before = NULL, after = NULL) {
+  Citep(bib=myBib, key, before=before, after=after, .opts = list(cite.style = "authoryear", max.names=2, style="markdown"))
+}
+mcitet <- function(key) {
+  Citet(bib=myBib, key, .opts = list(cite.style = "authoryear", max.names=2, style="markdown"))
+}
+```
+
+```{r load-packages, include = FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+## Objectives and outline
+
+Theory
+* Introduction to general principles of reinforcement learning
+* Introduction to multi-armed bandit tasks
+* A deeper look at some Bayesian heuristic strategies for solving MAB tasks
+
+Fitting RL models to human behaviour in a bandit task
+* Formulating Bayesian RL models 
+* Maximum likelihood parameter estimation
+* Practical tips and tricks for numerical optimization
+* Parameter identifiability
+
+---
+
+## What is a model?
+
+Human behaviour and cognition is complex. A *model* is a simplification which aims to incorporate relevant processes underlying behaviour and can be used to determine the likelihood of behaviours and simulate them.
+
+Some classic models in this area are:
+
+* The Rescorla-Wagner model of associative learning
+* The Generalized Context Model of category learning
+* The drift-diffusion model of choice and reaction time
+
+
+---
+
+## Describing human cognition and behaviour
+
+(Perceptual) input -> internal representation -> evaluation of behaviour -> behaviour
+
+Input -> learning model -> response model
+
+---
+
+## The simplest model of decisions from experience
+
+In decisions from experience, people need to choose between initially unknown options. 
+
+---
+
+## The simplest model of decisions from experience
+
+Assume learn an expectancy $E_{j,t}$ about each option $j$. If an option is chosen at time $t$, this can be updated in proportion to the difference between the reward obtained $(R_{j,t})$ and the expectancy, through the so-called delta rule:
+
+$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$
+where $\eta \in [0; 1]$ is the learning rate. It is common to set $E_{j,1} = 0$, for all $j$.
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+set.seed(12345)
+Rs <- rnorm(30, mean=4, sd = 3)
+# Rs <- c(0,4,3,-1,5,4, 3.5, 4, 7)
+dat <- expand.grid(eta= c(.05, .1, .5,.95),
+            R = Rs) %>%
+  group_by(eta) %>%
+  mutate(t = row_number()) %>%
+  mutate(E = 0) %>%
+  arrange(eta, t)
+for(i in 1:nrow(dat)) {
+  if(dat$t[i] > 1) {
+    dat$E[i] = dat$E[i-1] + dat$eta[i-1]*(dat$R[i-1] - dat$E[i-1])
+  }
+}
+dat %>%
+  mutate(eta = paste("η =", eta)) %>%
+  ggplot(aes(y=E, x=t)) + geom_line() + geom_point(mapping = aes(y=R, x=t)) + facet_wrap(~eta, scales = "free_y") + theme_minimal() + geom_hline(yintercept=4, lty=2)
+```
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$
+where $\tau$ is the "inverse temperature".
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+Es <- seq(-5, 5, length=5)
+expand.grid(tau = c(.1, .5, 1,3),
+            E = Es) %>%
+  group_by(tau) %>%
+  mutate(pD = exp(tau*E)) %>%
+  mutate(pD = pD/sum(pD)) %>%
+  mutate(tau = paste("τ =", tau)) %>%
+  ggplot(aes(y=pD, x=E)) + geom_point() + geom_line() + facet_wrap(~tau, scales = "free_y") + theme_minimal()
+```
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$
+where $\tau$ is the "inverse temperature".
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+Es <- seq(-5, 5, length=5) + 10
+expand.grid(tau = c(.1, .5, 1,3),
+            E = Es) %>%
+  group_by(tau) %>%
+  mutate(pD = exp(tau*E)) %>%
+  mutate(pD = pD/sum(pD)) %>%
+  mutate(tau = paste("τ =", tau)) %>%
+  ggplot(aes(y=pD, x=E)) + geom_point() + geom_line() + facet_wrap(~tau, scales = "free_y") + theme_minimal()
+```
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$
+where $\tau$ is the "inverse temperature".
+
+```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+Es <- seq(-5, 5, length=5)*10
+expand.grid(tau = c(.1, .5, 1,3),
+            E = Es) %>%
+  group_by(tau) %>%
+  mutate(pD = exp(tau*E)) %>%
+  mutate(pD = pD/sum(pD)) %>%
+  mutate(tau = paste("τ =", tau)) %>%
+  ggplot(aes(y=pD, x=E)) + geom_point() + geom_line() + facet_wrap(~tau, scales = "free_y") + theme_minimal()
+```
+
+---
+
+## The simplest model of decisions from experience
+
+Learning model:
+$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$
+Response model:
+$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$
+
+* If the learning rate $\eta$ is small, expectancies $E_{j,t}$ will be close together
+* The differences $E_{j,t} - E_{t,k}$ can be "stretched out" by increasing the inverse temperature $\tau$
+
+---
+
+## Simulating decisions from experience
+
+Simulate $n=1000$ people making choices between $K=4$ options for $T=100$ trials:
+```{r, cache=TRUE}
+set.seed(20220104)
+nP <- 1000 # number of people
+nT <- 100 # number of trials
+eta <- .2; tau <- 1 # parameters
+means <- c(-1, 1, 2, 2.5) # option means
+sds <- c(3,3,1,1) # option SDs
+E <- array(0, dim=c(nP, nT+1, length(means)))
+D <- array(0, dim=c(nP, nT, length(means)))
+for(i in 1:nP) {
+  for(t in 1:nT) {
+    # choose option
+    k <- sample(1:4, size = 1, prob=exp(tau*E[i,t,])/sum(exp(tau*E[i,t,])))
+    D[i,t,k] <- 1
+    # get reward
+    R <- rnorm(1, means[k], sds[k])
+    # update expectancies
+    E[i,t+1,] <- E[i,t,]
+    E[i,t+1,k] <- E[i,t,k] + eta*(R - E[i,t,k])
+  }
+}
+
+```
+
+---
+
+## Simulating decisions from experience
+
+Plot the proportions of choices over trials:
+
+```{r, fig.width=8, fig.height=4, fig.alig="center"}
+data.frame(t = 1:nT, option = factor(rep(1:4, each = nT)), pD = as.numeric(apply(D, c(2,3), mean))) %>%
+  ggplot(aes(x=t, y=pD, colour=option)) + geom_line() + theme_minimal() + ylim(c(0,1))
+```
+
+---
+
+## Exercises 1
+
+1. Find parameter values which make these lines smoother.
+2. Find parameter values which make these lines overlap.
+3. Increase all the mean rewards by 20. What happens to the probabilities of choice?
+
+---
+
+## Simulation and estimation
+
+Simulating data from a model is useful to get a feel for how a model works. You can also use it for things like *parameter space partitioning* `r mcitep("pitt2006global")`. 
+
+For matching parameters to data, it is usually inefficient (although Approximate Bayesian Computation can work well to get a distribution of sensible parameter values).
+
+For decision-making, "global" simulations generate decisions and the information (e.g. rewards) obtained. When missing certain early heuristics (e.g. try each option once or twice), the mismatch in early conditions can lead the models stray, even though they generally capture important processes. 
+
+---
+
+## The likelihood
+
+When we have collected data $\mathcal{D_T} = (D_1, \ldots, D_T, R_1, \ldots, R_T)$, we can view these as fixed and focus on varying the parameter values $\theta = (\eta, \tau)$ to achieve good fit to $\mathcal{D}_T$.
+
+The probability of the observed data, given the parameter values, is called the likelihood.
+
+$$l(\theta|\mathcal{D}_t) = p(\mathcal{D}_t|\theta)$$
+and plays a central part in both Frequentist and Bayesian inference.
+
+---
+
+## Maximum likelihood estimation
+
+```{r max-likelihood-grid-search, cache=TRUE}
+likelihood <- function(theta, data) {
+  lik <- 0.0
+  N <- dim(data)[1]
+  nT <- dim(data)[2]
+  nO <- dim(data)[3]
+  eta <- theta[1]
+  tau <- theta[2]
+  for(i in 1:N) {
+    E <- rep(0, nO)
+    for(t in 1:nT) {
+      pD <- exp(tau*E)/sum(exp(tau*E))
+      lik <- lik + log(pD[data[i,t,]])
+    }
+  }
+  return(lik)
+}
+theta <- expand.grid(eta = seq(0,1,length=10), tau = seq(0,2, length=10))
+lik <- rep(0, nrow(theta))
+for(i in 1:nrow(theta)) {
+  lik[i] <- likelihood(as.numeric(theta[i,]), D[1:50,,])
+}
+cbind(theta, lik = lik) %>%
+  ggplot(aes(x=eta, y = tau, g)) + geom_raster(aes(fill=lik))
+```
+
+---
+
+## Numerical optimization
+
+* Deterministic approaches (Nelder-Mead, BFGS)
+  * Guaranteed to converge to a local optimum
+* Random approaches (SANN, DEOPTIM)
+  * Depending on method, may converge to the global optimum (given *infinite* iterations)
+
+Deterministic and stochastic optimization routines rely on meta-parameters to guide search. These can have a big impact, but are difficult to determine from first principles.
+
+*Advice*: Try different methods, with different starting values and parameter settings!
+
+---
+
+## Working with parameter constraints
+
+Bounded optimization
+
+Transforming parameters
+
+---
+
+## Extending the simplest model (perseverance)
+
+---
+
+## Model comparison
+
+Highest likelihood is not suitable
+
+Nested models: Likelihood ratio test
+
+Information criteria (AIC and BIC)
+
+---
+
+## Confidence intervals
+
+Finite difference approximation to Hessian
+
+---
+
+## Parameter identifiability
+
+---
+
+## Alternative approaches
+
+Bayesian estimation
+
+Approximate Bayesian estimation
+
+---
+
+## References
+
+```{r refs, echo=FALSE, results="asis"}
+PrintBibliography(myBib)
+```
