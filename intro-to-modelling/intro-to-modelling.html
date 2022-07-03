@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Introduction to computational modelling (with R)</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Maarten Speekenbrink" />
+    <meta name="date" content="2022-07-03" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/htmlwidgets/htmlwidgets.js"></script>
+    <script src="libs/viz/viz.js"></script>
+    <link href="libs/DiagrammeR-styles/styles.css" rel="stylesheet" />
+    <script src="libs/grViz-binding/grViz.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+    <link rel="stylesheet" href="mystyles.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Introduction to computational modelling (with R)
+]
+.author[
+### Maarten Speekenbrink
+]
+.institute[
+### University College London
+]
+.date[
+### 2022-07-03
+]
+
+---
+
+
+
+
+
+
+
+
+
+
+## Objectives and outline
+
+* Present a basic model for decisions-from-experience
+* Simulate behaviour from the model
+* Provide insight into how model parameters interact to predict behaviour
+* Introduce common techniques for parameter estimation
+* Extend the basic model to allow for choice perseverence
+* Introduce common techniques for model comparison
+* Discuss more advanced topics (confidence intervals and model identifiability)
+
+All code and materials are available at https://github.com/mspeekenbrink/eadm-summer-school-2022/
+
+Slides can be viewed at
+
+**Note:** I use `R` but with a little effort most of what is discussed would work in e.g. `Python` as well
+
+---
+
+## What is a model?
+
+Human behaviour and cognition is complex. A *model* is a simplification which aims to incorporate relevant processes underlying behaviour and can be used to determine the likelihood of behaviours and simulate them.
+
+Some classic models in this area are:
+
+* The Rescorla-Wagner model of associative learning
+* The Generalized Context Model of category learning
+* The drift-diffusion model of choice and reaction time
+* ... (any other favourites?)
+
+---
+
+## Describing human cognition and behaviour
+
+<div id="htmlwidget-0b1ea5846fb038ee482a" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-0b1ea5846fb038ee482a">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+
+---
+
+## Describing human cognition and behaviour
+
+
+<div id="htmlwidget-29480c720c3b4ac2a6e6" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-29480c720c3b4ac2a6e6">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+
+---
+
+## Describing human cognition and behaviour
+
+
+<div id="htmlwidget-51b850d2e1c16750ec11" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-51b850d2e1c16750ec11">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  tab5 [label = \"feedback\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4 -> tab5;\n  tab5 -> tab2;\n  tab5 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+---
+
+## Describing human cognition and behaviour
+
+<div id="htmlwidget-888f61bee6a2ceeb4c6c" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-888f61bee6a2ceeb4c6c">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"input\"]\n  tab2 [label = \"learning model\"]\n  tab3 [label = \"response model\"]\n  \n  tab1 -> tab2 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+
+---
+
+## The simplest model of decisions from experience
+
+In decisions from experience, people need to choose between initially unknown options. They can only learn about the rewards options bring by trying (choosing) the options.  
+
+---
+
+## The simplest model of decisions from experience
+
+Assume learn an expectancy `\(E_{j,t}\)` about each option `\(j\)`. If an option is chosen at time `\(t\)`, this can be updated in proportion to the difference between the reward obtained `\((R_{j,t})\)` and the expectancy, through the so-called delta rule:
+
+`$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$`
+where `\(\eta \in [0; 1]\)` is the learning rate. It is common to set `\(E_{j,1} = 0\)`, for all `\(j\)`, although this should depend on the context.
+
+--
+
+If `\(R_{j,t}\)` is higher than expected `\((R_{j,t} - E_{j,t} &gt; 0)\)` the expectancy goes up `\((E_{j,t+1} &gt; E_{j,t})\)`
+
+--
+
+If `\(R_{j,t}\)` is lower than expected `\((R_{j,t} - E_{j,t} &lt; 0)\)` the expectancy goes down `\((E_{j,t+1} &lt; E_{j,t})\)`
+
+---
+
+## The simplest model of decisions from experience
+
+Assume learn an expectancy `\(E_{j,t}\)` about each option `\(j\)`. If an option is chosen at time `\(t\)`, this can be updated in proportion to the difference between the reward obtained `\((R_{j,t})\)` and the expectancy, through the so-called delta rule:
+
+`$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$`
+where `\(\eta \in [0; 1]\)` is the learning rate. It is common to set `\(E_{j,1} = 0\)`, for all `\(j\)`.
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-5-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+`$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$`
+where `\(\tau\)` is the "inverse temperature".
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-6-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+`$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$`
+where `\(\tau\)` is the "inverse temperature".
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-7-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## The simplest model of decisions from experience
+
+Most people don't always choose the option with the highest expectancy. One way to include (some) randomness in decisions is through the "softmax" decision rule:
+
+`$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$`
+where `\(\tau\)` is the "inverse temperature".
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-8-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## The simplest model of decisions from experience
+
+Learning model:
+`$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$`
+Response model:
+`$$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$`
+
+* If the learning rate `\(\eta\)` is small, expectancies `\(E_{j,t}\)` will be close together
+* The differences `\(E_{j,t} - E_{t,k}\)` can be "stretched out" by increasing the inverse temperature `\(\tau\)`
+
+---
+
+## Simulating decisions from experience
+
+Simulate `\(n=1000\)` people choosing between `\(K=4\)` options on `\(T=100\)` trials:
+
+.wrapping[
+
+```r
+set.seed(20220104)
+nP &lt;- 1000; nT &lt;- 100 # number of people and trials
+eta &lt;- .2; tau &lt;- 1 # parameters
+means &lt;- c(-1, 1, 2, 2.5); sds &lt;- c(3,3,1,1) # option means and SDs
+simdat &lt;- data.frame() # for storing results
+for(i in 1:nP) {
+  E &lt;- matrix(0, nrow=nT+1, ncol = length(means)); D &lt;- matrix(0, nrow=nT, ncol= length(means)); R &lt;- rep(0.0, length=nT) # for storing results
+  for(t in 1:nT) {
+    # choose option
+    k &lt;- sample(1:4, size = 1, prob=exp(tau*E[t,])/sum(exp(tau*E[t,])))
+    D[t,k] &lt;- 1
+    # get reward
+    R[t] &lt;- rnorm(1, means[k], sds[k])
+    # update expectancies
+    E[t+1,] &lt;- E[t,]
+    E[t+1,k] &lt;- E[t,k] + eta*(R[t] - E[t,k])
+  }
+  E &lt;- E[1:nT,]
+  simdat &lt;- rbind(simdat,
+               data.frame(id = i, trial = 1:nT, E1 = E[,1], E2 = E[,2], E3 = E[,3], E4 = E[,4], D1 = D[,1], D2 = D[,2], D3 = D[,3], D4 = D[,4], R = R))
+}
+```
+]
+
+---
+
+## Simulating decisions from experience
+
+Plot the proportions of choices over trials:
+
+
+```r
+simdat %&gt;%
+  select(id, trial, starts_with("D")) %&gt;%
+  pivot_longer(starts_with("D"), names_to = "option") %&gt;%
+  group_by(trial, option) %&gt;%
+  summarise(pD = mean(value)) %&gt;%
+  ggplot(aes(x=trial, y=pD, colour=option)) + geom_line() + theme_minimal() + ylim(c(0,1))
+```
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-10-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Activities 1
+
+1. Find parameter values which make these lines smoother.
+2. Find parameter values which make these lines overlap.
+3. Increase all the mean rewards by 20. What happens to the probabilities of choice?
+
+---
+
+## Simulation and estimation
+
+Simulating data from a model is useful to get a feel for how a model works. You can also use it for things like *parameter space partitioning* (Pitt, Kim, Navarro, and Myung, 2006). 
+
+For matching parameters to data, it is usually inefficient (although Approximate Bayesian Computation can work well to get a distribution of sensible parameter values).
+
+For decision-making, "global" simulations generate decisions and the information (e.g. rewards) obtained. When missing certain early heuristics (e.g. try each option once or twice), the mismatch in early conditions can lead the models stray, even though they generally capture important processes. 
+
+---
+
+## The likelihood
+
+When we have collected data `\(\mathcal{D_T} = (D_1, \ldots, D_T, R_1, \ldots, R_T)\)`, we can view these as fixed and focus on varying the parameter values `\(\theta = (\eta, \tau)\)` to achieve good fit to `\(\mathcal{D}_T\)`.
+
+The probability of the observed data, given the parameter values, is called the likelihood.
+
+`$$l(\theta|\mathcal{D}_t) = p(\mathcal{D}_t|\theta)$$`
+and plays a central part in both Frequentist and Bayesian inference.
+
+---
+
+## The log likelihood
+
+The likelihood tends to become very small, and it is more stable to work on a log-scale:
+
+```r
+# define a function to compute the likelihood
+loglikelihood &lt;- function(theta, data) {
+  loglik &lt;- 0.0
+  eta &lt;- theta[1]
+  tau &lt;- theta[2]
+  for(i in unique(data$id)) {
+    tdat &lt;- subset(data, id == i)
+    E &lt;- rep(0, 4)
+    for(t in 1:nrow(tdat)) {
+      pD &lt;- exp(tau*E)/sum(exp(tau*E))
+      choice &lt;- which(tdat[t,paste0("D", 1:4)] == 1)
+      loglik &lt;- loglik + log(pD[choice])
+      E[choice] &lt;- E[choice] + eta*(tdat$R[t] - E[choice])  
+    }
+  }
+  return(loglik)
+}
+```
+
+---
+
+## Maximum likelihood estimation
+
+
+```r
+# perform a grid search
+theta &lt;- expand.grid(eta = seq(0,1,length=20), tau = seq(0,4, length=20))
+loglik &lt;- rep(0, nrow(theta))
+for(i in 1:nrow(theta)) {
+  loglik[i] &lt;- loglikelihood(as.numeric(theta[i,]), subset(simdat, id &lt;= 20))
+}
+```
+
+---
+
+## Maximum likelihood estimation
+
+
+```r
+cbind(theta, loglik = loglik) %&gt;%
+  ggplot(aes(x=eta, y = tau, z = loglik)) + geom_raster(aes(fill=loglik)) + geom_contour(colour="white") + geom_point(data=cbind(theta, loglik = loglik)[which.max(loglik),]) + theme_minimal()
+```
+
+&lt;img src="intro-to-modelling_files/figure-html/unnamed-chunk-11-1.svg" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Numerical optimization
+
+* Deterministic approaches (Nelder-Mead, BFGS)
+  * Guaranteed to converge to a *local* optimum
+* Random approaches (SANN, DEOPTIM)
+  * Depending on method, may converge to the *global* optimum (given *infinite* iterations)
+
+Deterministic and stochastic optimization routines rely on meta-parameters to guide search. These can have a big impact, but are often difficult to determine from first principles.
+
+**Advice**: Try different methods, with different starting values and parameter settings!
+
+---
+
+## Deterministic optimization
+
+
+```r
+# most numerical optimization routines are geared towards minimization
+negloglikelihood &lt;- function(theta, data) {
+  -1*loglikelihood(theta, data)
+}
+optNM20 &lt;- optim(par = c(.1, 1), fn = negloglikelihood, method = "Nelder-Mead", data=subset(simdat, id &lt;= 20))
+optNM20
+```
+
+```
+## $par
+## [1] 0.1924719 1.0094897
+## 
+## $value
+## [1] 1988.443
+## 
+## $counts
+## function gradient 
+##       41       NA 
+## 
+## $convergence
+## [1] 0
+## 
+## $message
+## NULL
+```
+
+---
+
+## Activities 2
+
+* Try the optimization routine for a smaller dataset (e.g. `id == 1)`)
+* Try the optimization routine with different starting values (e.g. `\(\eta = .8\)`, `\(\tau = 5\)`)
+* Use the `BFGS` method instead of `Nelder-Mead`
+
+---
+
+## Stochastic optimization
+
+One popular method of stochastic optimization is Differential Evolution.
+
+.wrapping[
+
+```r
+library(DEoptim)
+optDEOPT20 &lt;- DEoptim(negloglikelihood, lower = c(0,0), upper = c(1, 10), data=subset(simdat, id &lt;= 20), control = DEoptim.control(itermax=30)) # note: you should set itermax higher!
+```
+
+```
+## Iteration: 1 bestvalit: 2010.285600 bestmemit:    0.259295    0.793343
+## Iteration: 2 bestvalit: 2010.285600 bestmemit:    0.259295    0.793343
+## Iteration: 3 bestvalit: 2010.285600 bestmemit:    0.259295    0.793343
+## Iteration: 4 bestvalit: 2005.975689 bestmemit:    0.266962    0.833254
+## Iteration: 5 bestvalit: 2005.975689 bestmemit:    0.266962    0.833254
+## Iteration: 6 bestvalit: 1991.308473 bestmemit:    0.172204    0.973201
+## Iteration: 7 bestvalit: 1991.308473 bestmemit:    0.172204    0.973201
+## Iteration: 8 bestvalit: 1988.605775 bestmemit:    0.192247    1.028742
+## Iteration: 9 bestvalit: 1988.605775 bestmemit:    0.192247    1.028742
+## Iteration: 10 bestvalit: 1988.605775 bestmemit:    0.192247    1.028742
+## Iteration: 11 bestvalit: 1988.605775 bestmemit:    0.192247    1.028742
+## Iteration: 12 bestvalit: 1988.605775 bestmemit:    0.192247    1.028742
+## Iteration: 13 bestvalit: 1988.484793 bestmemit:    0.192247    1.019363
+## Iteration: 14 bestvalit: 1988.484793 bestmemit:    0.192247    1.019363
+## Iteration: 15 bestvalit: 1988.484793 bestmemit:    0.192247    1.019363
+## Iteration: 16 bestvalit: 1988.484793 bestmemit:    0.192247    1.019363
+## Iteration: 17 bestvalit: 1988.484793 bestmemit:    0.192247    1.019363
+## Iteration: 18 bestvalit: 1988.473607 bestmemit:    0.194939    1.012365
+## Iteration: 19 bestvalit: 1988.473607 bestmemit:    0.194939    1.012365
+## Iteration: 20 bestvalit: 1988.448914 bestmemit:    0.192586    1.005919
+## Iteration: 21 bestvalit: 1988.448914 bestmemit:    0.192586    1.005919
+## Iteration: 22 bestvalit: 1988.448914 bestmemit:    0.192586    1.005919
+## Iteration: 23 bestvalit: 1988.448914 bestmemit:    0.192586    1.005919
+## Iteration: 24 bestvalit: 1988.444001 bestmemit:    0.193033    1.009595
+## Iteration: 25 bestvalit: 1988.444001 bestmemit:    0.193033    1.009595
+## Iteration: 26 bestvalit: 1988.444001 bestmemit:    0.193033    1.009595
+## Iteration: 27 bestvalit: 1988.443499 bestmemit:    0.192615    1.010389
+## Iteration: 28 bestvalit: 1988.443376 bestmemit:    0.192344    1.010389
+## Iteration: 29 bestvalit: 1988.443197 bestmemit:    0.192478    1.009087
+## Iteration: 30 bestvalit: 1988.443197 bestmemit:    0.192478    1.009087
+```
+
+```r
+optDEOPT20
+```
+
+```
+## $optim
+## $optim$bestmem
+##      par1      par2 
+## 0.1924778 1.0090869 
+## 
+## $optim$bestval
+## [1] 1988.443
+## 
+## $optim$nfeval
+## [1] 62
+## 
+## $optim$iter
+## [1] 30
+## 
+## 
+## $member
+## $member$lower
+## par1 par2 
+##    0    0 
+## 
+## $member$upper
+## par1 par2 
+##    1   10 
+## 
+## $member$bestmemit
+##         par1      par2
+## 1  0.2685073 1.6452421
+## 2  0.2592948 0.7933432
+## 3  0.2592948 0.7933432
+## 4  0.2592948 0.7933432
+## 5  0.2669617 0.8332536
+## 6  0.2669617 0.8332536
+## 7  0.1722038 0.9732012
+## 8  0.1722038 0.9732012
+## 9  0.1922473 1.0287416
+## 10 0.1922473 1.0287416
+## 11 0.1922473 1.0287416
+## 12 0.1922473 1.0287416
+## 13 0.1922473 1.0287416
+## 14 0.1922473 1.0193630
+## 15 0.1922473 1.0193630
+## 16 0.1922473 1.0193630
+## 17 0.1922473 1.0193630
+## 18 0.1922473 1.0193630
+## 19 0.1949395 1.0123650
+## 20 0.1949395 1.0123650
+## 21 0.1925861 1.0059186
+## 22 0.1925861 1.0059186
+## 23 0.1925861 1.0059186
+## 24 0.1925861 1.0059186
+## 25 0.1930329 1.0095952
+## 26 0.1930329 1.0095952
+## 27 0.1930329 1.0095952
+## 28 0.1926153 1.0103892
+## 29 0.1923440 1.0103892
+## 30 0.1924778 1.0090869
+## 
+## $member$bestvalit
+##  [1] 2189.144 2010.286 2010.286 2010.286 2005.976 2005.976 1991.308 1991.308
+##  [9] 1988.606 1988.606 1988.606 1988.606 1988.606 1988.485 1988.485 1988.485
+## [17] 1988.485 1988.485 1988.474 1988.474 1988.449 1988.449 1988.449 1988.449
+## [25] 1988.444 1988.444 1988.444 1988.443 1988.443 1988.443
+## 
+## $member$pop
+##            [,1]     [,2]
+##  [1,] 0.1923040 1.008060
+##  [2,] 0.1930439 1.009783
+##  [3,] 0.1931107 1.010834
+##  [4,] 0.1922070 1.009595
+##  [5,] 0.1934685 1.009918
+##  [6,] 0.1930936 1.011215
+##  [7,] 0.1928028 1.009771
+##  [8,] 0.1918667 1.008034
+##  [9,] 0.1929499 1.009899
+## [10,] 0.1938076 1.008317
+## [11,] 0.1923095 1.008242
+## [12,] 0.1915219 1.010322
+## [13,] 0.1922006 1.008660
+## [14,] 0.1918345 1.011986
+## [15,] 0.1925404 1.011396
+## [16,] 0.1922902 1.009938
+## [17,] 0.1924778 1.009087
+## [18,] 0.1923440 1.010389
+## [19,] 0.1914047 1.013271
+## [20,] 0.1923758 1.007769
+## 
+## $member$storepop
+## list()
+## 
+## 
+## attr(,"class")
+## [1] "DEoptim"
+```
+]
+---
+
+## Working with parameter constraints
+
+Parameters often have bounds. E.g. `\(0 \leq \eta \leq 1\)` and `\(\tau \geq 0\)`. 
+
+* Bounded optimization
+
+
+```r
+optLBFGSB20 &lt;- optim(par = c(.1, 1), fn = negloglikelihood, method = "L-BFGS-B", lower=c(0,0), upper=c(1, Inf), data=subset(simdat, id &lt;= 20))
+optLBFGSB20
+```
+
+```
+## $par
+## [1] 0.1925303 1.0095409
+## 
+## $value
+## [1] 1988.443
+## 
+## $counts
+## function gradient 
+##       11       11 
+## 
+## $convergence
+## [1] 0
+## 
+## $message
+## [1] "CONVERGENCE: REL_REDUCTION_OF_F &lt;= FACTR*EPSMCH"
+```
+
+---
+
+## Transforming parameters
+
+You can also *transform* parameters in such a way that they become unbounded. 
+
+Use a transformation `\(\theta' = f(\theta)\)` such that `\(-\infty &lt; \theta' &lt; \infty\)`
+
+Type         |  Formulation | Transformation                | Inverse                  
+-------------|--------------|-------------------------------|--------------------------
+Lower bound  | `\(\theta &gt; a\)` | `\(\theta' = \log (\theta - a)\)` | `\(\theta = a + \exp(\theta')\)` 
+Upper bound  | `\(\theta &lt; b\)` | `\(\theta' = \log (b - \theta)\)` | `\(\theta = b - \exp(\theta')\)` 
+Both         | `\(a &lt; \theta &lt; b\)` | `\(\theta' = \log \frac{(\theta-a)/(b-a)}{1 - (\theta-a)/(b-a)}\)` | `\(\theta = a + \frac{b-a}{1 + \exp(-\theta')}\)`
+
+---
+
+## Transforming parameters
+
+.wrapping[
+
+```r
+# define a function to compute the likelihood
+tnegloglikelihood &lt;- function(theta, data) {
+  eta &lt;- 1/(1+exp(-theta[1]))
+  tau &lt;- exp(theta[2])
+  negloglikelihood(c(eta, tau), data)
+}
+optTNM20 &lt;- optim(par = c(log(.1/(1-.1)), log(1)), fn = tnegloglikelihood, method = "Nelder-Mead", data=subset(simdat, id &lt;= 20))
+optTNM20
+```
+
+```
+## $par
+## [1] -1.43335546  0.00939731
+## 
+## $value
+## [1] 1988.443
+## 
+## $counts
+## function gradient 
+##       47       NA 
+## 
+## $convergence
+## [1] 0
+## 
+## $message
+## NULL
+```
+
+```r
+c(1/(1+exp(-optTNM20$par[1])), exp(optTNM20$par[2]))
+```
+
+```
+## [1] 0.1925764 1.0094416
+```
+]
+
+---
+
+## Extending the simplest model (perseverance)
+
+It is a common finding that people display a tendency to repeat previous choices (Sugawara and Katahira, 2021). This could reflect direct stimulus-response learning.
+
+One way to model this is through a "bonus" for previously chosen options:
+
+`$$P(D_t = j) = \frac{\exp (\tau E_{j,t} + \phi B_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t} + \phi B_{k,t})}$$`
+with
+
+`$$B_{j,t} = \begin{cases} B_{j,t} + \gamma (1 - B_{j,t}) &amp;&amp; D_{t} = j \\
+B_{j,t} + \gamma (0 - B_{j,t}) &amp;&amp; D_{t} \neq j
+\end{cases}$$`
+
+---
+
+## Extending the simplest model (perseverance)
+
+
+```r
+negloglikelihood_pers &lt;- function(theta, data) {
+  loglik &lt;- 0.0
+  eta &lt;- theta[1]
+  tau &lt;- theta[2]
+  phi &lt;- theta[3]
+  gamma &lt;- theta[4]
+  for(i in unique(data$id)) {
+    tdat &lt;- subset(data, id == i)
+    E &lt;- rep(0, 4)
+    B &lt;- rep(0, 4)
+    for(t in 1:nrow(tdat)) {
+      pD &lt;- exp(tau*E + phi*B)/sum(exp(tau*E + phi*B))
+      choice &lt;- which(tdat[t,paste0("D", 1:4)] == 1)
+      loglik &lt;- loglik + log(pD[choice])
+      E[choice] &lt;- E[choice] + eta*(tdat$R[t] - E[choice])
+      B &lt;- B + gamma*(as.numeric(1:4 == choice) - B)
+    }
+  }
+  return(-loglik)
+}
+```
+
+---
+
+## Extending the simplest model (perseverance)
+
+
+```r
+optLBFGSB20_pers &lt;- optim(par = c(.1, 1, .1, .5), fn = negloglikelihood_pers, method = "L-BFGS-B", lower=c(0,0,0,0), upper=c(1, Inf, Inf, 1), data=subset(simdat, id &lt;= 20))
+optLBFGSB20_pers
+```
+
+```
+## $par
+## [1] 0.192572426 1.008985660 0.001957769 0.504290307
+## 
+## $value
+## [1] 1988.443
+## 
+## $counts
+## function gradient 
+##       14       14 
+## 
+## $convergence
+## [1] 0
+## 
+## $message
+## [1] "CONVERGENCE: REL_REDUCTION_OF_F &lt;= FACTR*EPSMCH"
+```
+
+---
+
+## Model comparison
+
+We now have two competing models:
+
+* The simplest model of decisions from experience `\((\log l = -1988.44)\)`
+* A model of decisions from experience with perseverence `\((\log l = -1988.44)\)`
+
+Which one is better?
+
+--
+
+In theory, the additional parameters of the second model can only make the likelihood higher. So choosing the model with the highest likelihood is not suitable.
+
+---
+
+## Nested models: Likelihood ratio test
+
+The simplest model is nested under the second model. We can derive the simplest model by setting `\(\phi = 0\)` and `\(\gamma = 0\)`.
+
+--
+
+Nested models can be compared through a likelihood-ratio test:
+
+`$$\begin{aligned}
+\chi^2(\text{npar}(B) - \text{npar}(A)) &amp;= -2 \times \log l(A) - (-2 \times \log l(B)) \\
+\chi^2(4 - 2) &amp;= 3976.89  - 3976.89 \\
+\chi^2(2) &amp;= 0, p = 1
+\end{aligned}$$`
+
+---
+
+## Nested models: Likelihood ratio test
+
+Let's try with a smaller dataset:
+
+```r
+optLBFGSB1 &lt;- optim(par = c(.1, 1), fn = negloglikelihood, method = "L-BFGS-B", lower=c(0,0), upper=c(1, Inf), data=subset(simdat, id==10))
+optLBFGSB1_pers &lt;- optim(par = c(.1, 1, .1, .5), fn = negloglikelihood_pers, method = "L-BFGS-B", lower=c(0,0,0,0), upper=c(1, Inf, Inf, 1), data=subset(simdat, id==10))
+```
+
+`$$\begin{aligned}
+\chi^2(\text{npar}(B) - \text{npar}(A)) &amp;= -2 \times \log l(A) - (-2 \times \log l(B)) \\
+\chi^2(4 - 2) &amp;= 234.27  - 232.87 \\
+\chi^2(2) &amp;= 1.4, p = 0.497
+\end{aligned}$$`
+
+---
+
+## Nested models: Likelihood ratio test
+
+It is important to note that the Chi-squared distribution of the likelihood ratio test statistic is only (asymptotically) valid when the constrained parameters of the simpler model are in the interior of the parameter space. **This is not the case for the previous example**.
+
+To obtain valid `\(p\)`-values in that case, you cam use a parametric bootstrap...
+
+---
+
+## Information criteria (AIC and BIC)
+
+Information criteria can be viewed as measures which penalize model fit by complexity. The two most common criteria are the Akaike Information Criterion (AIC, Akaike, ) and the Bayesian Information Criterion (BIC, Schwarz, 1978):
+
+`$$\text{AIC}(M) = -2 \log l(M) + 2 \times \text{npar}(M)$$`
+`$$\text{BIC}(M) = -2 \log l(M) + \text{npar}(M) \times \log (n)$$`
+where `\(n\)` is the total number of observations.
+
+--
+
+The AIC aims to select the model with the smallest Kullback-Leiber divergence
+
+--
+
+The BIC aims to select the model with the highest posterior probability
+
+---
+
+## Information criteria (AIC and BIC)
+
+
+```r
+AICs &lt;- 2*optLBFGSB1$value + 2*2
+AICp &lt;- 2*optLBFGSB1_pers$value + 2*4
+BICs &lt;- 2*optLBFGSB1$value + 2*log(100)
+BICp &lt;- 2*optLBFGSB1_pers$value + 4*log(100)
+matrix(c(AICs, AICp, BICs, BICp), ncol=2, dimnames=list(c("simple","perseverence"),c("AIC", "BIC")))
+```
+
+```
+##                   AIC      BIC
+## simple       238.2700 243.4804
+## perseverence 240.8732 251.2939
+```
+
+---
+
+## Activities 3
+
+* Write code to simulate data from the model with perseverence (using e.g. `\(\phi = .2\)`, and `\(\gamma = .7\)`)
+* Estimate the simple model and the model with perseverance from the simulated data, and compare the models with the AIC and BIC
+
+---
+
+## Confidence intervals
+
+I won't go into the mathematical details, but standard errors of maximum likelihood estimated parameters can be obtained through the "Hessian" matrix (matrix of second-order partial derivatives of the log-likelihood function).
+
+Finite difference approximation to Hessian
+
+```r
+hess &lt;- numDeriv::hessian(tnegloglikelihood, optTNM20$par, data=subset(simdat, id &lt;= 20))
+se &lt;- sqrt(diag(solve(hess)))
+conf &lt;- rbind(lower = optTNM20$par - qnorm(.975)*se,
+                 upper = optTNM20$par + qnorm(.975)*se)
+colnames(conf) &lt;- c("eta","tau")
+conf
+```
+
+```
+##             eta         tau
+## lower -1.594553 -0.05960185
+## upper -1.272158  0.07839647
+```
+
+---
+
+## Confidence intervals
+
+Note that the previous confidence intervals are for the transformed parameters. As confidence intervals are quantiles, we can easily obtain confidence intervals for the original parameters through the inverse transformation:
+
+```r
+cbind(1/(1+exp(-conf[,1])), exp(conf[,2]))
+```
+
+```
+##            [,1]      [,2]
+## lower 0.1687443 0.9421396
+## upper 0.2188881 1.0815514
+```
+
+--
+
+**Note:** I used the transformed parameters to compute the Hessian. When parameters have constraints, these needs to be explicitly incorporated when computing the Hessian.
+
+---
+
+## Parameter identifiability
+
+An issue that is often overlooked in modelling is whether the parameters of a model are identifiable. Identifiability of a model roughly means that any change in model parameters implies a change in the likelihood. 
+
+--
+
+More formally, a model with parameters `\(\theta \in \Theta\)`, where `\(\Theta\)` denotes the parameter space, is identifiable when, for (almost) all possible observations `\(y \in \mathcal{Y}\)`
+`$$P(y|\theta) = P(y|\theta') \leftrightarrow \theta = \theta'$$`
+--
+
+If, in our simple model, we allow `\(\eta = 0\)`, then the likelihood is the same for any value of `\(\tau\)` (and conversely for `\(\tau = 0\)`). Identifiability thus requires that `\(\eta &gt; 0\)` and `\(tau &gt; 0\)`.
+
+For more complex models, identifiability can be harder to assess (see e.g., Speekenbrink, 2019)
+
+---
+
+## Some practical tips
+
+### Understanding
+
+* Simulate a model with different parameter values, and find a useful way to summarize the data graphically. Learn how each parameter affects purported behaviour.
+
+### Estimation
+
+* When estimating a model, use different starting values that cover the sensible range of possible values.
+
+### Coding
+
+* Check your code by hand by first running it on a simple enough situation where hand-calculation is possible.
+* If you use the same parts of an `R` script multiple times, consider defining it as a function. Any crucial changes would then only need to be made once. 
+* You will end up running a model many, many times. Consider optimizing time-consuming loops in e.g. `cpp` (the `Rcpp` package is very useful for this).
+
+---
+
+## Alternative approaches
+
+I have focused here on maximum likelihood estimation, but there are of course other frameworks and techniques. For instance:
+
+* Bayesian estimation and hierarchical Bayesian models (workshop on Wednesday with Mikhail Spektor)
+
+* Approximate Bayesian Computation (ABC), which is useful if you can't compute a likelihood, but can only simulate from a model
+
+* Bayesian Optimization, which optimizes a function by active learning on a Gaussian Process
+
+---
+
+## References
+
+Akaike, H. "Information theory and an extension of the maximum
+likelihood principle". In: _Breakthroughs in statistics. Vol 1_. Ed. by
+S. Kotz and K. L. Johnson. London: Springer-Verlag, pp. 610-624.
+
+Pitt, M. A., W. Kim, et al. (2006). "Global model analysis by parameter
+space partitioning." In: _Psychological Review_ 113.1, p. 57.
+
+Schwarz, G. (1978). "Estimating the dimension of a model". In: _Annals
+of Statistics_ 6, pp. 461-464.
+
+Speekenbrink, M. (2019). "Identifiability of Gaussian Bayesian bandit
+models". In: _2019 Conference on Cognitive Computational Neuroscience_.
+Cognitive Computational Neuroscience. , pp. 686-688.
+
+Sugawara, M. and K. Katahira (2021). "Dissociation between asymmetric
+value updating and perseverance in human reinforcement learning". In:
+_Scientific reports_ 11.1, pp. 1-13.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"navigation": {
+"scroll": false
+}
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

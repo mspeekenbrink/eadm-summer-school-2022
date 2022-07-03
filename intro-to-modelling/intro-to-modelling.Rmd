@@ -1,5 +1,5 @@
 ---
-title: "Introduction to computational modelling"
+title: "Introduction to computational modelling (with R)"
 author: "Maarten Speekenbrink"
 institute: "University College London"
 date: "`r Sys.Date()`"
@@ -7,15 +7,34 @@ bibliography: refs.bib
 output:
   xaringan::moon_reader:
     lib_dir: libs
+    css: [xaringan-themer.css, mystyles.css]
     nature:
       highlightStyle: github
       highlightLines: true
       countIncrementalSlides: false
+      navigation:
+        scroll: false
 ---
 
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
-knitr::opts_chunk$set(fig.retina = 3, dev='svg')
+knitr::knit_hooks$set(purl = knitr::hook_purl)
+knitr::opts_chunk$set(fig.retina = 3, dev='svg', out.width = "90%", fig.align="center", message=FALSE, warning=FALSE, purl=FALSE)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  base_color = "#555025",
+  header_font_google = google_font("Source Sans Pro", "700", "700i"),
+  text_font_google   = google_font("Source Sans Pro", "400", "400i"),
+  code_font_google   = google_font("Source Code Pro"),
+  base_font_size = '22px',
+  header_h1_font_size = "2rem",
+  header_h2_font_size = "1.6rem",
+  header_h3_font_size = "1.25rem"
+)
+ucl_grey <- "#8C8279"
 ```
 
 ```{r bibtex, include=FALSE}
@@ -36,23 +55,27 @@ mcitet <- function(key) {
 }
 ```
 
-```{r load-packages, include = FALSE}
+```{r load-packages, include = FALSE, purl=TRUE}
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 ```
 
 ## Objectives and outline
 
-Theory
-* Introduction to general principles of reinforcement learning
-* Introduction to multi-armed bandit tasks
-* A deeper look at some Bayesian heuristic strategies for solving MAB tasks
+* Present a basic model for decisions-from-experience
+* Simulate behaviour from the model
+* Provide insight into how model parameters interact to predict behaviour
+* Introduce common techniques for parameter estimation
+* Extend the basic model to allow for choice perseverence
+* Introduce common techniques for model comparison
+* Discuss more advanced topics (confidence intervals and model identifiability)
 
-Fitting RL models to human behaviour in a bandit task
-* Formulating Bayesian RL models 
-* Maximum likelihood parameter estimation
-* Practical tips and tricks for numerical optimization
-* Parameter identifiability
+All code and materials are available at https://github.com/mspeekenbrink/eadm-summer-school-2022/
+
+Slides can be viewed at
+
+**Note:** I use `R` but with a little effort most of what is discussed would work in e.g. `Python` as well
 
 ---
 
@@ -65,21 +88,95 @@ Some classic models in this area are:
 * The Rescorla-Wagner model of associative learning
 * The Generalized Context Model of category learning
 * The drift-diffusion model of choice and reaction time
-
+* ... (any other favourites?)
 
 ---
 
 ## Describing human cognition and behaviour
 
-(Perceptual) input -> internal representation -> evaluation of behaviour -> behaviour
+```{r, echo=FALSE}
+DiagrammeR::grViz(diagram = "digraph flowchart {
+  node [fontname = arial, shape = oval]
+  tab1 [label = '(Perceptual) input']
+  tab4 [label = 'response']
+  
+  tab1 -> tab4;
+}")
+```
 
-Input -> learning model -> response model
+---
+
+## Describing human cognition and behaviour
+
+
+```{r, echo=FALSE}
+DiagrammeR::grViz(diagram = "digraph flowchart {
+  node [fontname = arial, shape = oval]
+  tab1 [label = '(Perceptual) input']
+  tab2 [label = 'internal representation']
+  tab3 [label = 'evaluation of response options']
+  tab4 [label = 'response']
+  
+  tab1 -> tab2 -> tab3 -> tab4;
+}")
+```
+
+---
+
+## Describing human cognition and behaviour
+
+
+```{r, echo=FALSE}
+DiagrammeR::grViz(diagram = "digraph flowchart {
+  node [fontname = arial, shape = oval]
+  tab1 [label = '(perceptual) input']
+  tab2 [label = 'internal representation']
+  tab3 [label = 'evaluation of response options']
+  tab4 [label = 'response']
+  tab5 [label = 'feedback']
+  
+  tab1 -> tab2 -> tab3 -> tab4 -> tab5;
+  tab5 -> tab2;
+  tab5 -> tab3;
+}")
+```
+---
+
+## Describing human cognition and behaviour
+
+```{r, echo=FALSE}
+DiagrammeR::grViz(diagram = "digraph flowchart {
+  node [fontname = arial, shape = oval]
+  tab1 [label = 'input']
+  tab2 [label = 'learning model']
+  tab3 [label = 'response model']
+  
+  tab1 -> tab2 -> tab3;
+}")
+```
 
 ---
 
 ## The simplest model of decisions from experience
 
-In decisions from experience, people need to choose between initially unknown options. 
+In decisions from experience, people need to choose between initially unknown options. They can only learn about the rewards options bring by trying (choosing) the options.  
+
+---
+
+## The simplest model of decisions from experience
+
+Assume learn an expectancy $E_{j,t}$ about each option $j$. If an option is chosen at time $t$, this can be updated in proportion to the difference between the reward obtained $(R_{j,t})$ and the expectancy, through the so-called delta rule:
+
+$$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$
+where $\eta \in [0; 1]$ is the learning rate. It is common to set $E_{j,1} = 0$, for all $j$, although this should depend on the context.
+
+--
+
+If $R_{j,t}$ is higher than expected $(R_{j,t} - E_{j,t} > 0)$ the expectancy goes up $(E_{j,t+1} > E_{j,t})$
+
+--
+
+If $R_{j,t}$ is lower than expected $(R_{j,t} - E_{j,t} < 0)$ the expectancy goes down $(E_{j,t+1} < E_{j,t})$
 
 ---
 
@@ -90,10 +187,9 @@ Assume learn an expectancy $E_{j,t}$ about each option $j$. If an option is chos
 $$E_{j,t+1} = E_{j,t} + \eta (R_{j,t} - E_{j,t})$$
 where $\eta \in [0; 1]$ is the learning rate. It is common to set $E_{j,1} = 0$, for all $j$.
 
-```{r, echo=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+```{r, echo=FALSE, fig.width=6, fig.height=3}
 set.seed(12345)
 Rs <- rnorm(30, mean=4, sd = 3)
-# Rs <- c(0,4,3,-1,5,4, 3.5, 4, 7)
 dat <- expand.grid(eta= c(.05, .1, .5,.95),
             R = Rs) %>%
   group_by(eta) %>%
@@ -186,30 +282,33 @@ $$P(D_t = j) = \frac{\exp (\tau E_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t})}$$
 
 ## Simulating decisions from experience
 
-Simulate $n=1000$ people making choices between $K=4$ options for $T=100$ trials:
-```{r, cache=TRUE}
+Simulate $n=1000$ people choosing between $K=4$ options on $T=100$ trials:
+
+.wrapping[
+```{r, cache=TRUE, purl = TRUE}
 set.seed(20220104)
-nP <- 1000 # number of people
-nT <- 100 # number of trials
+nP <- 1000; nT <- 100 # number of people and trials
 eta <- .2; tau <- 1 # parameters
-means <- c(-1, 1, 2, 2.5) # option means
-sds <- c(3,3,1,1) # option SDs
-E <- array(0, dim=c(nP, nT+1, length(means)))
-D <- array(0, dim=c(nP, nT, length(means)))
+means <- c(-1, 1, 2, 2.5); sds <- c(3,3,1,1) # option means and SDs
+simdat <- data.frame() # for storing results
 for(i in 1:nP) {
+  E <- matrix(0, nrow=nT+1, ncol = length(means)); D <- matrix(0, nrow=nT, ncol= length(means)); R <- rep(0.0, length=nT) # for storing results
   for(t in 1:nT) {
     # choose option
-    k <- sample(1:4, size = 1, prob=exp(tau*E[i,t,])/sum(exp(tau*E[i,t,])))
-    D[i,t,k] <- 1
+    k <- sample(1:4, size = 1, prob=exp(tau*E[t,])/sum(exp(tau*E[t,])))
+    D[t,k] <- 1
     # get reward
-    R <- rnorm(1, means[k], sds[k])
+    R[t] <- rnorm(1, means[k], sds[k])
     # update expectancies
-    E[i,t+1,] <- E[i,t,]
-    E[i,t+1,k] <- E[i,t,k] + eta*(R - E[i,t,k])
+    E[t+1,] <- E[t,]
+    E[t+1,k] <- E[t,k] + eta*(R[t] - E[t,k])
   }
+  E <- E[1:nT,]
+  simdat <- rbind(simdat,
+               data.frame(id = i, trial = 1:nT, E1 = E[,1], E2 = E[,2], E3 = E[,3], E4 = E[,4], D1 = D[,1], D2 = D[,2], D3 = D[,3], D4 = D[,4], R = R))
 }
-
 ```
+]
 
 ---
 
@@ -218,13 +317,17 @@ for(i in 1:nP) {
 Plot the proportions of choices over trials:
 
 ```{r, fig.width=8, fig.height=4, fig.alig="center"}
-data.frame(t = 1:nT, option = factor(rep(1:4, each = nT)), pD = as.numeric(apply(D, c(2,3), mean))) %>%
-  ggplot(aes(x=t, y=pD, colour=option)) + geom_line() + theme_minimal() + ylim(c(0,1))
+simdat %>%
+  select(id, trial, starts_with("D")) %>%
+  pivot_longer(starts_with("D"), names_to = "option") %>%
+  group_by(trial, option) %>%
+  summarise(pD = mean(value)) %>%
+  ggplot(aes(x=trial, y=pD, colour=option)) + geom_line() + theme_minimal() + ylim(c(0,1))
 ```
 
 ---
 
-## Exercises 1
+## Activities 1
 
 1. Find parameter values which make these lines smoother.
 2. Find parameter values which make these lines overlap.
@@ -253,32 +356,49 @@ and plays a central part in both Frequentist and Bayesian inference.
 
 ---
 
-## Maximum likelihood estimation
+## The log likelihood
 
-```{r max-likelihood-grid-search, cache=TRUE}
-likelihood <- function(theta, data) {
-  lik <- 0.0
-  N <- dim(data)[1]
-  nT <- dim(data)[2]
-  nO <- dim(data)[3]
+The likelihood tends to become very small, and it is more stable to work on a log-scale:
+```{r likelihood-definition, purl=TRUE}
+# define a function to compute the likelihood
+loglikelihood <- function(theta, data) {
+  loglik <- 0.0
   eta <- theta[1]
   tau <- theta[2]
-  for(i in 1:N) {
-    E <- rep(0, nO)
-    for(t in 1:nT) {
+  for(i in unique(data$id)) {
+    tdat <- subset(data, id == i)
+    E <- rep(0, 4)
+    for(t in 1:nrow(tdat)) {
       pD <- exp(tau*E)/sum(exp(tau*E))
-      lik <- lik + log(pD[data[i,t,]])
+      choice <- which(tdat[t,paste0("D", 1:4)] == 1)
+      loglik <- loglik + log(pD[choice])
+      E[choice] <- E[choice] + eta*(tdat$R[t] - E[choice])  
     }
   }
-  return(lik)
+  return(loglik)
 }
-theta <- expand.grid(eta = seq(0,1,length=10), tau = seq(0,2, length=10))
-lik <- rep(0, nrow(theta))
+```
+
+---
+
+## Maximum likelihood estimation
+
+```{r max-likelihood-grid-search, cache=TRUE, purl=TRUE}
+# perform a grid search
+theta <- expand.grid(eta = seq(0,1,length=20), tau = seq(0,4, length=20))
+loglik <- rep(0, nrow(theta))
 for(i in 1:nrow(theta)) {
-  lik[i] <- likelihood(as.numeric(theta[i,]), D[1:50,,])
+  loglik[i] <- loglikelihood(as.numeric(theta[i,]), subset(simdat, id <= 20))
 }
-cbind(theta, lik = lik) %>%
-  ggplot(aes(x=eta, y = tau, g)) + geom_raster(aes(fill=lik))
+```
+
+---
+
+## Maximum likelihood estimation
+
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=4}
+cbind(theta, loglik = loglik) %>%
+  ggplot(aes(x=eta, y = tau, z = loglik)) + geom_raster(aes(fill=loglik)) + geom_contour(colour="white") + geom_point(data=cbind(theta, loglik = loglik)[which.max(loglik),]) + theme_minimal()
 ```
 
 ---
@@ -286,53 +406,310 @@ cbind(theta, lik = lik) %>%
 ## Numerical optimization
 
 * Deterministic approaches (Nelder-Mead, BFGS)
-  * Guaranteed to converge to a local optimum
+  * Guaranteed to converge to a *local* optimum
 * Random approaches (SANN, DEOPTIM)
-  * Depending on method, may converge to the global optimum (given *infinite* iterations)
+  * Depending on method, may converge to the *global* optimum (given *infinite* iterations)
 
-Deterministic and stochastic optimization routines rely on meta-parameters to guide search. These can have a big impact, but are difficult to determine from first principles.
+Deterministic and stochastic optimization routines rely on meta-parameters to guide search. These can have a big impact, but are often difficult to determine from first principles.
 
-*Advice*: Try different methods, with different starting values and parameter settings!
+**Advice**: Try different methods, with different starting values and parameter settings!
 
+---
+
+## Deterministic optimization
+
+```{r Nelder-Mead, cache=TRUE, purl=TRUE}
+# most numerical optimization routines are geared towards minimization
+negloglikelihood <- function(theta, data) {
+  -1*loglikelihood(theta, data)
+}
+optNM20 <- optim(par = c(.1, 1), fn = negloglikelihood, method = "Nelder-Mead", data=subset(simdat, id <= 20))
+optNM20
+```
+
+---
+
+## Activities 2
+
+* Try the optimization routine for a smaller dataset (e.g. `id == 1)`)
+* Try the optimization routine with different starting values (e.g. $\eta = .8$, $\tau = 5$)
+* Use the `BFGS` method instead of `Nelder-Mead`
+
+---
+
+## Stochastic optimization
+
+One popular method of stochastic optimization is Differential Evolution.
+
+.wrapping[
+```{r DEoptim, cache=TRUE, purl=TRUE}
+library(DEoptim)
+optDEOPT20 <- DEoptim(negloglikelihood, lower = c(0,0), upper = c(1, 10), data=subset(simdat, id <= 20), control = DEoptim.control(itermax=30)) # note: you should set itermax higher!
+optDEOPT20
+```
+]
 ---
 
 ## Working with parameter constraints
 
-Bounded optimization
+Parameters often have bounds. E.g. $0 \leq \eta \leq 1$ and $\tau \geq 0$. 
 
-Transforming parameters
+* Bounded optimization
+
+```{r LBFGSB, cache=TRUE, purl=TRUE}
+optLBFGSB20 <- optim(par = c(.1, 1), fn = negloglikelihood, method = "L-BFGS-B", lower=c(0,0), upper=c(1, Inf), data=subset(simdat, id <= 20))
+optLBFGSB20
+```
+
+---
+
+## Transforming parameters
+
+You can also *transform* parameters in such a way that they become unbounded. 
+
+Use a transformation $\theta' = f(\theta)$ such that $-\infty < \theta' < \infty$
+
+Type         |  Formulation | Transformation                | Inverse                  
+-------------|--------------|-------------------------------|--------------------------
+Lower bound  | $\theta > a$ | $\theta' = \log (\theta - a)$ | $\theta = a + \exp(\theta')$ 
+Upper bound  | $\theta < b$ | $\theta' = \log (b - \theta)$ | $\theta = b - \exp(\theta')$ 
+Both         | $a < \theta < b$ | $\theta' = \log \frac{(\theta-a)/(b-a)}{1 - (\theta-a)/(b-a)}$ | $\theta = a + \frac{b-a}{1 + \exp(-\theta')}$
+
+---
+
+## Transforming parameters
+
+.wrapping[
+```{r max-likelihood-transformed, cache=TRUE, purl=TRUE}
+# define a function to compute the likelihood
+tnegloglikelihood <- function(theta, data) {
+  eta <- 1/(1+exp(-theta[1]))
+  tau <- exp(theta[2])
+  negloglikelihood(c(eta, tau), data)
+}
+optTNM20 <- optim(par = c(log(.1/(1-.1)), log(1)), fn = tnegloglikelihood, method = "Nelder-Mead", data=subset(simdat, id <= 20))
+optTNM20
+c(1/(1+exp(-optTNM20$par[1])), exp(optTNM20$par[2]))
+```
+]
 
 ---
 
 ## Extending the simplest model (perseverance)
 
+It is a common finding that people display a tendency to repeat previous choices `r mcitep("sugawara2021dissociation")`. This could reflect direct stimulus-response learning.
+
+One way to model this is through a "bonus" for previously chosen options:
+
+$$P(D_t = j) = \frac{\exp (\tau E_{j,t} + \phi B_{j,t})}{\sum_{k=1}^K \exp(\tau E_{k,t} + \phi B_{k,t})}$$
+with
+
+$$B_{j,t} = \begin{cases} B_{j,t} + \gamma (1 - B_{j,t}) && D_{t} = j \\
+B_{j,t} + \gamma (0 - B_{j,t}) && D_{t} \neq j
+\end{cases}$$
+
+---
+
+## Extending the simplest model (perseverance)
+
+```{r perseverence-negloglikelihood, purl=TRUE}
+negloglikelihood_pers <- function(theta, data) {
+  loglik <- 0.0
+  eta <- theta[1]
+  tau <- theta[2]
+  phi <- theta[3]
+  gamma <- theta[4]
+  for(i in unique(data$id)) {
+    tdat <- subset(data, id == i)
+    E <- rep(0, 4)
+    B <- rep(0, 4)
+    for(t in 1:nrow(tdat)) {
+      pD <- exp(tau*E + phi*B)/sum(exp(tau*E + phi*B))
+      choice <- which(tdat[t,paste0("D", 1:4)] == 1)
+      loglik <- loglik + log(pD[choice])
+      E[choice] <- E[choice] + eta*(tdat$R[t] - E[choice])
+      B <- B + gamma*(as.numeric(1:4 == choice) - B)
+    }
+  }
+  return(-loglik)
+}
+```
+
+---
+
+## Extending the simplest model (perseverance)
+
+```{r LBFGSB-pers, cache=TRUE, purl=TRUE}
+optLBFGSB20_pers <- optim(par = c(.1, 1, .1, .5), fn = negloglikelihood_pers, method = "L-BFGS-B", lower=c(0,0,0,0), upper=c(1, Inf, Inf, 1), data=subset(simdat, id <= 20))
+optLBFGSB20_pers
+```
+
 ---
 
 ## Model comparison
 
-Highest likelihood is not suitable
+We now have two competing models:
 
-Nested models: Likelihood ratio test
+* The simplest model of decisions from experience $(\log l = `r round(-optLBFGSB20$value,2)`)$
+* A model of decisions from experience with perseverence $(\log l = `r round(-optLBFGSB20_pers$value,2)`)$
 
-Information criteria (AIC and BIC)
+Which one is better?
+
+--
+
+In theory, the additional parameters of the second model can only make the likelihood higher. So choosing the model with the highest likelihood is not suitable.
+
+---
+
+## Nested models: Likelihood ratio test
+
+The simplest model is nested under the second model. We can derive the simplest model by setting $\phi = 0$ and $\gamma = 0$.
+
+--
+
+Nested models can be compared through a likelihood-ratio test:
+
+$$\begin{aligned}
+\chi^2(\text{npar}(B) - \text{npar}(A)) &= -2 \times \log l(A) - (-2 \times \log l(B)) \\
+\chi^2(4 - 2) &= `r round(2*optLBFGSB20$value,2)`  - `r round(2*optLBFGSB20_pers$value,2)` \\
+\chi^2(2) &= `r round(2*optLBFGSB20$value - 2*optLBFGSB20_pers$value,2)`, p = `r round(1 - pchisq(2*optLBFGSB20$value - 2*optLBFGSB20_pers$value, 2),3)`
+\end{aligned}$$
+
+---
+
+## Nested models: Likelihood ratio test
+
+Let's try with a smaller dataset:
+```{r fit-models-to-1-person, purl=TRUE}
+optLBFGSB1 <- optim(par = c(.1, 1), fn = negloglikelihood, method = "L-BFGS-B", lower=c(0,0), upper=c(1, Inf), data=subset(simdat, id==10))
+optLBFGSB1_pers <- optim(par = c(.1, 1, .1, .5), fn = negloglikelihood_pers, method = "L-BFGS-B", lower=c(0,0,0,0), upper=c(1, Inf, Inf, 1), data=subset(simdat, id==10))
+```
+
+$$\begin{aligned}
+\chi^2(\text{npar}(B) - \text{npar}(A)) &= -2 \times \log l(A) - (-2 \times \log l(B)) \\
+\chi^2(4 - 2) &= `r round(2*optLBFGSB1$value,2)`  - `r round(2*optLBFGSB1_pers$value,2)` \\
+\chi^2(2) &= `r round(2*optLBFGSB1$value - 2*optLBFGSB1_pers$value,2)`, p = `r round(1 - pchisq(2*optLBFGSB1$value - 2*optLBFGSB1_pers$value, 2),3)`
+\end{aligned}$$
+
+---
+
+## Nested models: Likelihood ratio test
+
+It is important to note that the Chi-squared distribution of the likelihood ratio test statistic is only (asymptotically) valid when the constrained parameters of the simpler model are in the interior of the parameter space. **This is not the case for the previous example**.
+
+To obtain valid $p$-values in that case, you cam use a parametric bootstrap...
+
+---
+
+## Information criteria (AIC and BIC)
+
+Information criteria can be viewed as measures which penalize model fit by complexity. The two most common criteria are the Akaike Information Criterion `r mcitep("Akaike1973", before = "AIC, ")` and the Bayesian Information Criterion `r mcitep("Schwarz1978", before = "BIC, ")`:
+
+$$\text{AIC}(M) = -2 \log l(M) + 2 \times \text{npar}(M)$$
+$$\text{BIC}(M) = -2 \log l(M) + \text{npar}(M) \times \log (n)$$
+where $n$ is the total number of observations.
+
+--
+
+The AIC aims to select the model with the smallest Kullback-Leiber divergence
+
+--
+
+The BIC aims to select the model with the highest posterior probability
+
+---
+
+## Information criteria (AIC and BIC)
+
+```{r compute-information-criteria, purl=TRUE}
+AICs <- 2*optLBFGSB1$value + 2*2
+AICp <- 2*optLBFGSB1_pers$value + 2*4
+BICs <- 2*optLBFGSB1$value + 2*log(100)
+BICp <- 2*optLBFGSB1_pers$value + 4*log(100)
+matrix(c(AICs, AICp, BICs, BICp), ncol=2, dimnames=list(c("simple","perseverence"),c("AIC", "BIC")))
+```
+
+---
+
+## Activities 3
+
+* Write code to simulate data from the model with perseverence (using e.g. $\phi = .2$, and $\gamma = .7$)
+* Estimate the simple model and the model with perseverance from the simulated data, and compare the models with the AIC and BIC
 
 ---
 
 ## Confidence intervals
 
+I won't go into the mathematical details, but standard errors of maximum likelihood estimated parameters can be obtained through the "Hessian" matrix (matrix of second-order partial derivatives of the log-likelihood function).
+
 Finite difference approximation to Hessian
+```{r fd-hessian, purl=TRUE}
+hess <- numDeriv::hessian(tnegloglikelihood, optTNM20$par, data=subset(simdat, id <= 20))
+se <- sqrt(diag(solve(hess)))
+conf <- rbind(lower = optTNM20$par - qnorm(.975)*se,
+                 upper = optTNM20$par + qnorm(.975)*se)
+colnames(conf) <- c("eta","tau")
+conf
+```
+
+---
+
+## Confidence intervals
+
+Note that the previous confidence intervals are for the transformed parameters. As confidence intervals are quantiles, we can easily obtain confidence intervals for the original parameters through the inverse transformation:
+```{r, purl=TRUE}
+cbind(1/(1+exp(-conf[,1])), exp(conf[,2]))
+```
+
+--
+
+**Note:** I used the transformed parameters to compute the Hessian. When parameters have constraints, these needs to be explicitly incorporated when computing the Hessian.
 
 ---
 
 ## Parameter identifiability
 
+An issue that is often overlooked in modelling is whether the parameters of a model are identifiable. Identifiability of a model roughly means that any change in model parameters implies a change in the likelihood. 
+
+--
+
+More formally, a model with parameters $\theta \in \Theta$, where $\Theta$ denotes the parameter space, is identifiable when, for (almost) all possible observations $y \in \mathcal{Y}$
+$$P(y|\theta) = P(y|\theta') \leftrightarrow \theta = \theta'$$
+--
+
+If, in our simple model, we allow $\eta = 0$, then the likelihood is the same for any value of $\tau$ (and conversely for $\tau = 0$). Identifiability thus requires that $\eta > 0$ and $tau > 0$.
+
+For more complex models, identifiability can be harder to assess `r mcitep("speekenbrink2019identifiability", before = "see e.g., ")`
+
+---
+
+## Some practical tips
+
+### Understanding
+
+* Simulate a model with different parameter values, and find a useful way to summarize the data graphically. Learn how each parameter affects purported behaviour.
+
+### Estimation
+
+* When estimating a model, use different starting values that cover the sensible range of possible values.
+
+### Coding
+
+* Check your code by hand by first running it on a simple enough situation where hand-calculation is possible.
+* If you use the same parts of an `R` script multiple times, consider defining it as a function. Any crucial changes would then only need to be made once. 
+* You will end up running a model many, many times. Consider optimizing time-consuming loops in e.g. `cpp` (the `Rcpp` package is very useful for this).
+
 ---
 
 ## Alternative approaches
 
-Bayesian estimation
+I have focused here on maximum likelihood estimation, but there are of course other frameworks and techniques. For instance:
 
-Approximate Bayesian estimation
+* Bayesian estimation and hierarchical Bayesian models (workshop on Wednesday with Mikhail Spektor)
+
+* Approximate Bayesian Computation (ABC), which is useful if you can't compute a likelihood, but can only simulate from a model
+
+* Bayesian Optimization, which optimizes a function by active learning on a Gaussian Process
 
 ---
 
