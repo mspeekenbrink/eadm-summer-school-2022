@@ -73,7 +73,7 @@ library(ggplot2)
 
 All code and materials are available at https://github.com/mspeekenbrink/eadm-summer-school-2022/
 
-Slides can be viewed at
+Slides can be viewed at online at https://mspeekenbrink.github.io/eadm-summer-school-2022/intro-to-modelling/intro-to-modelling.html
 
 **Note:** I use `R` but with a little effort most of what is discussed would work in e.g. `Python` as well
 

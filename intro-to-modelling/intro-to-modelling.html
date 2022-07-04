@@ -4,7 +4,7 @@
     <title>Introduction to computational modelling (with R)</title>
     <meta charset="utf-8" />
     <meta name="author" content="Maarten Speekenbrink" />
-    <meta name="date" content="2022-07-03" />
+    <meta name="date" content="2022-07-04" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <script src="libs/htmlwidgets/htmlwidgets.js"></script>
     <script src="libs/viz/viz.js"></script>
@@ -27,7 +27,7 @@ class: center, middle, inverse, title-slide
 ### University College London
 ]
 .date[
-### 2022-07-03
+### 2022-07-04
 ]
 
 ---
@@ -53,7 +53,7 @@ class: center, middle, inverse, title-slide
 
 All code and materials are available at https://github.com/mspeekenbrink/eadm-summer-school-2022/
 
-Slides can be viewed at
+Slides can be viewed at online at https://mspeekenbrink.github.io/eadm-summer-school-2022/intro-to-modelling/intro-to-modelling.html
 
 **Note:** I use `R` but with a little effort most of what is discussed would work in e.g. `Python` as well
 
@@ -74,30 +74,30 @@ Some classic models in this area are:
 
 ## Describing human cognition and behaviour
 
-<div id="htmlwidget-0b1ea5846fb038ee482a" style="width:90%;height:504px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-0b1ea5846fb038ee482a">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-478435df7d5bd42db959" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-478435df7d5bd42db959">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 ---
 
 ## Describing human cognition and behaviour
 
 
-<div id="htmlwidget-29480c720c3b4ac2a6e6" style="width:90%;height:504px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-29480c720c3b4ac2a6e6">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-de7a7dcd319ea86f97a5" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-de7a7dcd319ea86f97a5">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(Perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 ---
 
 ## Describing human cognition and behaviour
 
 
-<div id="htmlwidget-51b850d2e1c16750ec11" style="width:90%;height:504px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-51b850d2e1c16750ec11">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  tab5 [label = \"feedback\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4 -> tab5;\n  tab5 -> tab2;\n  tab5 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-fa61cdc4f2f598f75f8d" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-fa61cdc4f2f598f75f8d">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"(perceptual) input\"]\n  tab2 [label = \"internal representation\"]\n  tab3 [label = \"evaluation of response options\"]\n  tab4 [label = \"response\"]\n  tab5 [label = \"feedback\"]\n  \n  tab1 -> tab2 -> tab3 -> tab4 -> tab5;\n  tab5 -> tab2;\n  tab5 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 ---
 
 ## Describing human cognition and behaviour
 
-<div id="htmlwidget-888f61bee6a2ceeb4c6c" style="width:90%;height:504px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-888f61bee6a2ceeb4c6c">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"input\"]\n  tab2 [label = \"learning model\"]\n  tab3 [label = \"response model\"]\n  \n  tab1 -> tab2 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-330f4d44757e642adb1f" style="width:90%;height:504px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-330f4d44757e642adb1f">{"x":{"diagram":"digraph flowchart {\n  node [fontname = arial, shape = oval]\n  tab1 [label = \"input\"]\n  tab2 [label = \"learning model\"]\n  tab3 [label = \"response model\"]\n  \n  tab1 -> tab2 -> tab3;\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 
 ---
 
