@@ -1,0 +1,45 @@
+.center {
+  text-align: center;
+}
+
+.wrapping {
+  height: 80%;
+  overflow-y: auto;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.small {
+  font-size: .5rem;
+}
+
+.smallish {
+  font-size: .75rem;
+}
+
+.big {
+  font-size: 1.5rem;
+}
+
+.bigger {
+  font-size: 2rem;
+}
+
+.biggest {
+  font-size: 3rem;
+}
+
+.huge {
+  font-size: 10rem;
+}
+
+.center-left {
+  position:          relative;
+  top:               50%;
+  transform:         translateY(50%);
+}
+.center-right {
+  position:          relative;
+  top:               50%;
+  transform:         translateY(50%);
+}

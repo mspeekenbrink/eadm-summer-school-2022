@@ -1,0 +1,643 @@
+---
+title: "Uncertainty and Exploration"
+author: "Maarten Speekenbrink and Hrvoje Stojic"
+institute: "University College London and Secondmind"
+date: "`r Sys.Date()`"
+bibliography: refs.bib
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: [xaringan-themer.css, mycss.css]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      navigation:
+        scroll: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "90%",
+  cache = FALSE,
+  echo = FALSE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.show = TRUE,
+  fig.showtext = TRUE,
+  fig.align="center",
+  hiline = TRUE
+)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(ggplot2)
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#003D4C",
+  secondary_color = "#D6D2C4",
+  inverse_header_color = "#EA7600"
+)
+
+my_colours <- c("#003D4C", "#EA7600", "#4E3629", "#93272C", "#555025")
+options(ggplot2.discrete.fill = my_colours)
+
+myTheme <- xaringanthemer::theme_xaringan(text_font_size = 16, title_font_size = 18) + ggplot2::theme(strip.background = element_rect(fill = "#D6D2C4"), legend.position = "bottom")
+
+myTheme2 <- ggplot2::theme_minimal() + ggplot2::theme(legend.position = "bottom") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+```
+
+```{r bibtex, include=FALSE}
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           cite.style = "authoryear",
+           style = "markdown",
+           hyperlink = FALSE,
+           dashed = FALSE,
+           max.names = 2)
+myBib <- ReadBib("uncertainty.bib", check = FALSE)
+mcitep <- function(key, before = NULL, after = NULL) {
+  Citep(bib=myBib, key, before=before, after=after, .opts = list(cite.style = "authoryear", max.names=2, style="markdown"))
+}
+mcitet <- function(key) {
+  Citet(bib=myBib, key, .opts = list(cite.style = "authoryear", max.names=2, style="markdown"))
+}
+```
+
+```{r load-packages, include = FALSE, purl=TRUE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+```
+
+class: center middle
+background-image: url("images/catherine-heath-HzliqcgPxnA-unsplash.jpg")
+background-position: center
+background-size: cover
+
+<div class="footer"><span>Photo by Catherine Heath on Unsplash</span></div>
+
+---
+class: center middle
+background-image: url("images/peter-bond-KfvknMhkmw0-unsplash.jpg")
+background-position: center
+background-size: cover
+
+<div class="footer"><span>Photo by Peter Bond on Unsplash</span></div>
+
+---
+class: center middle
+background-image: url("images/keith-davey-1YR-NR2xp6I-unsplash.jpg")
+background-position: center
+background-size: cover
+
+<div class="footer"><span>Photo by keith davey on Unsplash</span></div>
+
+---
+class: center middle
+background-image: url("images/freestocks-nss2eRzQwgw-unsplash.jpg")
+background-position: center
+background-size: cover
+
+<div class="footer"><span>Photo by freestocks on Unsplash</span></div>
+
+---
+class: center middle
+background-image: url("images/yogas-design-rPzEQ7tTRr8-unsplash.jpg")
+background-position: center
+background-size: cover
+
+<div class="footer"><span>Photo by Yogas Design on Unsplash</span></div>
+
+---
+class: inverse center middle
+
+# Exploration-exploitation dilemma
+
+---
+
+## The exploration-exploitation dilemma
+
+Many crossroads in life require a decision between actions with unknown consequences. These can be mundane (take the bus or cycle to work?) or more profound (accept a new job offer or continue in current one?).
+
+There often is an inherent tie between our actions and our experience of the world: We do not know what would have happened if we had taken a different course of action. 
+
+The resulting conundrum is known as the _exploration-exploitation dilemma_ : Should I choose an option which I know I like (exploit), or a more uncertain option such that by learning about it I might improve my future decisions (exploration)?
+
+---
+
+## The Ellsberg game
+
+There are two urns, each with 100 black and red balls. You can choose a colour. If I blindly pick a ball and it has your colour, you will win 10 Euro, if I pick a ball with the other colour, you will loose 5 Euro. Do you want to play, and if so, with which urn?
+
+* Urn A has exactly 50 black and 50 red balls
+* Urn B has 100 black and red balls, but with an unknown number of each
+
+--
+
+Most people prefer Urn A, but why?
+
+--
+
+Uncertainty *aversion*?
+
+---
+
+## The repeated Ellsberg Game
+
+Suppose you are allowed to play the Ellsberg game repeatedly with the exact same urns, and you are allowed to switch colour. Which urn would you choose?
+
+* Urn A has exactly 50 black and 50 red balls
+* Urn B has 100 black and red balls, but with an unknown number of each
+
+--
+
+Choosing Urn B would prove advantageous. Over time, you can learn whether there are more red or black balls in the urn and bet accordingly, winning more often than possible with Urn A!
+
+---
+class: center middle inverse
+background-image: url("images/amit-lahav-HffApi3okak-unsplash.jpg")
+background-position: center
+background-size: contain
+
+# Multi-armed-bandits
+
+<div class="footer"><span>Photo by Amit Lahav on Unsplash</span></div>
+
+---
+
+
+```{r bandit-plots}
+
+library(ggplot2)
+plots <- list()
+
+cols <- c("A" = "darkred", "B" = "darkgreen", "C" = "darkblue", "D" = "darkorchid4")
+
+plots[[1]] <- ggplot() + geom_rect(mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax, fill=option), data = data.frame(xmin = c(1,2,3,4), ymin=c(0,0,0,0), xmax=c(1,2,3,4) + .8, ymax=c(0,0,0,0) + .8, option = c("A", "B", "C", "D"))) + geom_text(mapping = aes(x=x, y=y, label=label), data=data.frame(x=c(1,2,3,4) + .4, y=c(0,0,0,0) + .9, label=c("A", "B", "C", "D"))) + theme_void() + theme(legend.position="none") + scale_fill_manual(values = cols) + ylim(0,1.1)
+
+plots[[2]] <- ggplot() + geom_rect(mapping = aes(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax), data = data.frame(xmin = c(1,2,3,4), ymin=c(0,0,0,0), xmax=c(1,2,3,4) + .8, ymax=c(0,0,0,0) + .8, option = c("A", "B", "C", "D")), fill="red") + geom_text(mapping = aes(x=x, y=y, label=label), data=data.frame(x=c(1,2,3,4) + .4, y=c(0,0,0,0) + .9, label=c("A", "B", "C", "D"))) + theme_void() + theme(legend.position="none") + geom_segment(mapping = aes(x=x, y=y, xend=xmax, yend=ymax), data = data.frame(x = c(1,2,3,4) + .05 , y=c(0,0,0,0) + .05, xmax=c(1.5,2.1,3.6,4.1), ymax = c(0,0,0,0) + .05, option = c("A", "B", "C", "D")), colour="yellow", lwd=2, lineend = "square")  + geom_segment(mapping = aes(x=x, y=y, xend=xmax, yend=ymax), data = data.frame(x = c(1,2,3,4) + .05 , y = c(0,0,0,0) + .05, xmax=c(1,2,3,4) + .05, ymax=c(0.2,0.7,0.7,0.1), option = c("A", "B", "C", "D")), colour="yellow", lwd=2, lineend = "square")  + ylim(0,1.1)
+
+set.seed(20220415)
+trial <- seq(20, 1, length=10)
+dat <- expand.grid(option=c("A","B","C","D"), trial=trial)
+dat$mu <- c(2,.2,4.5,5.5)
+dat$sigma <- c(.5,.5,.5,.5)
+cdat <- data.frame(trial=trial, choice = c("A","C","B","D",sample(c("A","B","C","D"), 6, replace=TRUE)))
+cdat$reward <- 0
+for(i in 1:nrow(cdat)) {
+  cdat$reward[i] <- rnorm(1,mean=subset(dat, trial == cdat$trial[i] & option == cdat[i,"choice"])$mu, sd=subset(dat, trial == cdat$trial[i] & option == cdat[i,"choice"])$sigma)
+}
+  
+displ_dnorm <- function(x, mean, sd, y) {
+  dnorm(x, mean=mean, sd = sd) + y
+}
+plt <- ggplot()  + scale_colour_manual(values=cols) + theme_void() + theme(legend.position = "none") + xlim(min(dat$mu) - 4*max(dat$sigma), max(dat$mu) + 3*max(dat$sigma)) #  + ylim(min(trial), max(trial))
+for(i in 1:nrow(dat)) {
+  if(subset(cdat, trial == dat[i,"trial"])$choice == dat[i,"option"]) {
+    alph <- 1
+    lwd <- 1.5
+  } else {
+    alph <- .5
+    lwd <- .5
+  }
+  plt <- plt + geom_function(fun = displ_dnorm, args = list(mean=dat[i,"mu"],sd=dat[i,"sigma"], y=dat[i,"trial"]), colour = cols[as.character(dat[i,"option"])], n=201, alpha=alph, lwd=lwd, xlim = c(dat[i,"mu"] - 3*dat[i,"sigma"], dat[i,"mu"] + 3*dat[i,"sigma"])) # aes(colour=eval(as.character(static_dat[i,"option"]))), n=201)
+}
+plt <- plt + geom_point(mapping = aes(y=trial, x=reward, colour = choice), data=cdat)
+plt <- plt + geom_text(mapping=aes(x=x,y=trial, label=label), data=data.frame(trial=cdat$trial, x = min(dat$mu) - 4*max(dat$sigma), label=paste(1:10))) + annotate("text",x=min(dat$mu) - 4*max(dat$sigma), y=max(cdat$trial) + 1.5, label="trial")
+plots[[3]] <- plt
+
+set.seed(45)
+for(i in 5:nrow(dat)) {
+  dat[i,"mu"] <- dat[i-4,"mu"] + rnorm(1,0,.8)
+}
+for(i in 1:nrow(cdat)) {
+  cdat$reward[i] <- rnorm(1,mean=subset(dat, trial == cdat$trial[i] & option == cdat[i,"choice"])$mu, sd=subset(dat, trial == cdat$trial[i] & option == cdat[i,"choice"])$sigma)
+}
+plt <- ggplot() + xlim(min(dat$mu) - 4*max(dat$sigma), max(dat$mu) + 3*max(dat$sigma)) + scale_colour_manual(values=cols) + theme_void() + theme(legend.position = "none") #  + ylim(min(trial), max(trial))
+for(i in 1:nrow(dat)) {
+  if(subset(cdat, trial == dat[i,"trial"])$choice == dat[i,"option"]) {
+    alph <- 1
+    lwd <- 1.5
+  } else {
+    alph <- .5
+    lwd <- .5
+  }
+  plt <- plt + geom_function(fun = displ_dnorm, args = list(mean=dat[i,"mu"],sd=dat[i,"sigma"], y=dat[i,"trial"]), colour = cols[as.character(dat[i,"option"])], n=201, alpha=alph, lwd=lwd, xlim = c(dat[i,"mu"] - 3*dat[i,"sigma"], dat[i,"mu"] + 3*dat[i,"sigma"])) 
+}
+plt <- plt + geom_point(mapping = aes(y=trial, x=reward, colour = choice), data=cdat)
+plt <- plt + geom_text(mapping=aes(x=x,y=trial, label=label), data=data.frame(trial=cdat$trial, x = min(dat$mu) - 4*max(dat$sigma), label=paste(1:10))) + annotate("text",x=min(dat$mu) - 4*max(dat$sigma), y=max(cdat$trial) + 1.5, label="trial")
+plots[[4]] <- plt
+
+stims <- expand.grid(seq(0,1,length=21),seq(0,1,length=21))
+
+load("GP.RData")
+library(mvtnorm)
+
+set.seed(123876231)
+R1 <- rmvnorm(1,rep(0.0,nrow(X)),X)
+R1 <- (R1 - min(R1))/(max(R1)-min(R1))
+
+plots[[5]] <- ggplot(data.frame(x=stims[,1],y=stims[,2],z=R1),aes(x=x,y=y,fill=R1)) + geom_raster() + xlab("horizontal line") + ylab("vertical line") + theme_minimal() + theme(legend.position = "none")
+
+```
+
+```{r static-bandit-plot, fig.width=.75*5, fig.height=.75*8, out.width="50%"}
+grid.newpage()
+top_row_h = .2
+panel_width <- 1
+row_spacing <- .05
+vpa1_ <- viewport(width = panel_width, height = top_row_h, x = .5*panel_width, y = 1 - .5*top_row_h)
+vpa2_ <- viewport(width = panel_width, height = 1 - top_row_h - row_spacing, x = .5*panel_width, y = .5*(1 - top_row_h - row_spacing))
+
+print(plots[[1]] + ggtitle("standard bandit"), vp=vpa1_)
+print(plots[[3]], vp=vpa2_)
+```
+
+---
+
+```{r restless-bandit-plot, fig.width=.75*5, fig.height=.75*8, out.width="50%"}
+grid.newpage()
+top_row_h = .2
+panel_width <- 1
+row_spacing <- .05
+vpa1_ <- viewport(width = panel_width, height = top_row_h, x = .5*panel_width, y = 1 - .5*top_row_h)
+vpa2_ <- viewport(width = panel_width, height = 1 - top_row_h - row_spacing, x = .5*panel_width, y = .5*(1 - top_row_h - row_spacing))
+
+print(plots[[1]] + ggtitle("restless bandit"), vp=vpa1_)
+print(plots[[4]], vp=vpa2_)
+```
+
+---
+
+```{r contextual-bandit-plot, fig.width=.75*5, fig.height=.75*6.5, out.width="50%"}
+grid.newpage()
+top_row_h = .25
+panel_width <- 1
+row_spacing <- .05
+vpa1_ <- viewport(width = panel_width, height = top_row_h, x = .5*panel_width, y = 1 - .5*top_row_h)
+vpa2_ <- viewport(width = panel_width, height = 1 - top_row_h - row_spacing, x = .5*panel_width, y = .5*(1 - top_row_h - row_spacing))
+
+print(plots[[2]] + ggtitle("contextual bandit"), vp=vpa1_)
+print(plots[[5]] + ggtitle("feature-reward function"), vp=vpa2_)
+```
+
+---
+
+## Types of uncertainty
+
+* aleatoric uncertainty (risk, and also called "irreducible uncertainty")
+* epistemic uncertainty
+  * estimation uncertainty 
+  * structural uncertainty
+
+```{r bayesian-learning, fig.width=8, fig.height=1.8}
+
+plots <- list()
+
+prior_mean <- 6
+prior_sd <- 3
+obs <- 20
+err_sd <- .8
+posterior_mean <- (obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2)
+posterior_sd <- sqrt((err_sd^2*prior_sd^2)/(err_sd^2 + prior_sd^2))
+plots[[1]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=prior_mean,sd=prior_sd), aes(colour="prior"))  + geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + geom_function(fun = dnorm, args = list(mean=posterior_mean, sd=posterior_sd), aes(colour="posterior"), n=201) + xlim(-2,25) + ylim(0,0.55) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = prior_mean, y = .01, xend = posterior_mean, yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("High estimation uncertainty")  + theme(legend.position = c(.15, .8)) +  theme(plot.title = element_text(size = 12))
+
+prior_mean <- 6
+prior_sd <- .8
+obs <- 20
+err_sd <- .8
+plots[[2]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=prior_mean,sd=prior_sd), aes(colour="prior"))  + geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + geom_function(fun = dnorm, args = list(mean=(obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2),sd=sqrt((err_sd^2*prior_sd^2)/(err_sd^2 + prior_sd^2))), aes(colour="posterior"), n=201) + xlim(-2,25) + ylim(0,0.75) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = prior_mean, y = .01, xend = (obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2), yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("Low estimation uncertainty") + theme(legend.position = "none") +  theme(plot.title = element_text(size = 12)) #theme(legend.position = c(.15, .8))
+
+wdnorm <- function(x,w,mean,sd,log=FALSE) {
+  w*dnorm(x=x, mean=mean, sd=sd, log=log)
+}
+
+mnorm <- function(x, weights, means, sds) {
+  weights[1]*dnorm(x, mean=means[1], sd=sds[1]) + weights[2]*dnorm(x, mean=means[2], sd=sds[2])
+}
+
+prior_means <- c(2, 6)
+prior_probs <- c(.2,.8)
+prior_sds <- c(2,.8)
+obs <- 20
+err_sd <- .8
+plots[[3]] <- ggplot() + geom_function(fun = wdnorm, args = list(w = prior_probs[1], mean=prior_means[1],sd=prior_sds[1]), aes(colour="prior"), lty=3) +  geom_function(fun = wdnorm, args = list(w = prior_probs[2], mean=prior_means[2],sd=prior_sds[2]), aes(colour="prior"), lty=3) + geom_function(fun = mnorm, args = list(weights = prior_probs, means=prior_means,sds=prior_sds), aes(colour="prior")) +
+  geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + 
+  geom_function(fun = mnorm, args = list(weights = c(prior_probs[1]*dnorm(obs, mean=prior_means[1], sd=prior_sds[1])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)), prior_probs[2]*dnorm(obs, mean=prior_means[2], sd=prior_sds[2])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds))), means=c((obs*prior_sds[1]^2 + prior_means[1]*err_sd^2)/(prior_sds[1]^2 + err_sd^2), (obs*prior_sds[2]^2 + prior_means[2]*err_sd^2)/(prior_sds[2]^2 + err_sd^2)), sds=c(sqrt((err_sd^2*prior_sds[1]^2)/(err_sd^2 + prior_sds[1]^2)), sqrt((err_sd^2*prior_sds[2]^2)/(err_sd^2 + prior_sds[2]^2)))), aes(colour="posterior"), n=201) + 
+  xlim(-2,25) + ylim(0,0.75) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = sum(prior_probs*prior_means), y = .01, xend = sum(c(prior_probs[1]*dnorm(obs, mean=prior_means[1], sd=prior_sds[1])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)), prior_probs[2]*dnorm(obs, mean=prior_means[2], sd=prior_sds[2])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)))*c((obs*prior_sds[1]^2 + prior_means[1]*err_sd^2)/(prior_sds[1]^2 + err_sd^2), (obs*prior_sds[2]^2 + prior_means[2]*err_sd^2)/(prior_sds[2]^2 + err_sd^2))), yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("Structural uncertainty") + theme(legend.position = "none") +  theme(plot.title = element_text(size = 12)) # theme(legend.position = c(.15, .8))
+
+gridExtra::grid.arrange(plots[[1]], plots[[2]], plots[[3]], layout_matrix = rbind(c(1,1,2,2,3,3)))
+```
+
+---
+
+## Kalman filter
+
+Assume the rewards $R_{j,t}$ of each option $j$ are governed by the following process:
+$$\begin{align} R_{j,t} &= \mu_{j,t} + \epsilon_{j,t} & & \epsilon_{j,t} \sim \mathcal{N}(0,\sigma^2_\epsilon) \\ \mu_{j,t} &= \mu_{j,t-1} + \xi_{j,t} && \xi_{j,t} \sim \mathcal{N}(0,\sigma_\xi^2) \end{align}$$
+
+Assuming $p(\mu_{0,j}) = \mathcal{N}(m_{0,j},v_{0,j})$, the posterior distributions of $\mu_{t,j}$ are all Normal: 
+$$p(\mu_{t,j} | \mathcal{D}_{t}) = \mathcal{N}(m_{t,j},v_{t,j})$$
+
+where $\mathcal{D}_t = (R_1,D_1,\ldots,R_t,D_t)$ denotes the relevant information up to time $t$
+
+$$m_{t,j} = m_{t-1,j} + k_{t,j} (R_t - m_{t-1,j})$$
+
+$$k_{t,j} = \begin{cases} \frac{v_{t-1,j} + \sigma_\xi^2}{v_{t-1,j} + \sigma_\xi^2 + \sigma_\epsilon^2} && \text{ if } C_t = j \\ 0 && \text{ otherwise } \end{cases}$$
+
+$$v_{t,j} = (1 - k_{t,j}) (v_{t-1,j} + \sigma^2_\xi)$$
+---
+
+## Kalman gain
+
+```{r,echo=FALSE,fig.width=8,fig.height=4,fig.align='center'}
+kalman_gain <- function(v0,sigma_xi_sq,sigma_epsilon_sq,nt=30) {
+  kt <- rep(0,nt)
+  v <- v0
+  for(t in 1:nt) {
+    kt[t] <- (v + sigma_xi_sq)/(v + sigma_xi_sq + sigma_epsilon_sq)
+    v <- (1-kt[t])*(v + sigma_xi_sq)
+  }
+  return(kt)
+}
+rbind(
+  data.frame(time=1:30,parameters=1,kf=kalman_gain(1000,16,16)),
+  data.frame(time=1:30,parameters=2,kf=kalman_gain(1000,8,320)),
+  data.frame(time=1:30,parameters=3,kf=kalman_gain(1000,320,8)),
+  data.frame(time=1:30,parameters=4,kf=kalman_gain(1,8,1600))
+  ) %>%
+    mutate(parameters=factor(parameters)) %>%
+    ggplot(aes(x=time,y=kf,colour=parameters)) + geom_line() + scale_color_discrete(labels=c(
+      expression(v[0] == 1000 ~ sigma[xi]^2 == 16 ~ sigma[epsilon]^2 == 16),
+      expression(v[0] == 1000 ~ sigma[xi]^2 == 8 ~ sigma[epsilon]^2 == 320),
+      expression(v[0] == 1000 ~ sigma[xi]^2 == 320 ~ sigma[epsilon]^2 == 8),
+      expression(v[0] == 1 ~ sigma[xi]^2 == 8 ~ sigma[epsilon]^2 == 1600)
+    ))  + ylab(expression(k[t])) + theme_minimal()
+```
+
+Steady-state gain: $$k_* = \frac{1}{2} \left(\sqrt{\frac{\sigma^4_\xi}{\sigma^4_\epsilon} + 4 \frac{\sigma^2_\xi}{\sigma^2_\epsilon}} - \frac{\sigma^2_\xi}{\sigma^2_\epsilon} \right)$$
+
+---
+
+## Kalman gain in a bandit task
+
+Gain increases if a bandit hasn't been played for some time
+
+```{r,echo=FALSE,warning=FALSE,fig.width=8,fig.height=5,fig.align='center'}
+kalman_gain <- function(chosen,v0,sigma_xi_sq,sigma_epsilon_sq,nt=20) {
+  kt <- rep(0,nt)
+  v <- v0
+  for(t in 1:nt) {
+    kt[t] <- ifelse(chosen[t],(v + sigma_xi_sq)/(v + sigma_xi_sq + sigma_epsilon_sq),0)
+    v <- (1-kt[t])*(v + sigma_xi_sq)
+  }
+  return(kt)
+}
+chosen <- rep(FALSE,20)
+chosen[c(1,2,3,10,11,15,16)] <- TRUE
+data.frame(time=1:20,parameters=1,kf=kalman_gain(chosen,1000,16,16)) %>%
+    mutate(parameters=factor(parameters),kf=replace(kf,kf==0,NA)) %>%
+    ggplot(aes(x=time,y=kf,colour=parameters)) + geom_line() + scale_color_discrete(labels=c(
+      expression(v[0] == 1000 ~ sigma[xi]^2 == 16 ~ sigma[epsilon]^2 == 16)
+    ))  + ylab(expression(k[t])) + ylim(0,1) + theme_minimal()
+```
+
+
+---
+class: inverse center middle
+
+# Decision (and exploration) strategies
+
+---
+
+## ε-greedy
+
+With probability $1-\epsilon$, choose the option with maximum $m_{j,t}$, otherwise pick a random option with uniform probability.
+
+--
+
+* A simple way to promote exploration, which does not take uncertainty into account.
+* Explores good and bad options equally often.
+
+---
+
+## Softmax
+
+$$P(D_t = j) = \frac{\exp(\tau \times m_{t-1,j})}{\sum_{k=1}^K \exp(\tau \times m_{t-1,k})}$$
+
+--
+
+* A simple way to promote exploration, which does not take uncertainty into account. 
+* Smaller values of $\tau$ will result in more random choices. You can view $1/\tau$ as something like the variance of noise around the expected rewards $m_{t-1,k}$. Crucially, this variance is the same for all options (i.e., not related to uncertainty).
+
+---
+
+## Thompson sampling
+
+For each option $j$, sample an expected reward 
+$$\tilde{\mu}_{j,t} \sim P(\mu_{j,t}|\mathcal{D}_t)$$
+and choose $D_t = \arg \max_j \tilde{m}_{j,t}$
+
+--
+
+E.g.
+
+$$\begin{aligned}
+2.1 &= \tilde{\mu}_{1,t} \sim \mathcal{N}(2, 1) \\
+2.8 &= \tilde{\mu}_{2,t} \sim \mathcal{N}(1.5, 1) \\
+1.6 &= \tilde{\mu}_{3,t} \sim \mathcal{N}(1, 1) \\
+1.9 &= \tilde{\mu}_{4,t} \sim \mathcal{N}(0.5, 1) \\
+\end{aligned}$$
+
+---
+
+## Thompson sampling
+
+For each option $j$, sample an expected reward 
+$$\tilde{\mu}_{j,t} \sim P(\mu_{j,t}|\mathcal{D}_t)$$
+and choose $D_t = \arg \max_j \tilde{m}_{j,t}$
+
+**Probability of maximum utility `r mcitep("speekenbrink_uncertainty_2015")`**
+
+For each option $j$, sample a reward 
+$$\tilde{R}_{j,t} \sim P(R_{j,t}|\mathcal{D}_t)$$
+and choose $D_t = \arg \max_j \tilde{R}_{j,t}$
+
+
+---
+
+## Upper-confidence bound (UCB)
+
+$$P(C_t = j) = \begin{cases} 1 && \text{if } j = \arg \max m_{k,t-1} + \beta \left(\sqrt{v_{k,t-1} + \sigma^2_\xi}\right) \\
+0 && \text{otherwise} \end{cases}$$
+
+--
+
+* Balances exploration and exploitation according to uncertainty ( $v_{j, t-1} + \sigma^2_\xi$ is the prior predictive variance)
+* Can be viewed as an optimistic bonus for uncertain options
+* Setting e.g. $\beta = 1.96$ computes for each option the upper-bound of the 95\% confidence interval.
+
+---
+
+## Exploration strategies
+
+```{r exploration-strategies-plot, fig.width=.8*8, fig.height=.8*4}
+
+means_1 <- c(-1, 2)
+sds_1 <- c(5, .5)
+ucb_1 <- means_1 + 1.96*sds_1
+means_2 <- means_1
+sds_2 <- c(.5,.5)
+ucb_2 <- means_2 + 1.96*sds_2
+
+plots <- list()
+
+
+plots[[1]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=means_1[1],sd=sds_1[1]), aes(colour="A"), n=201) + geom_segment(aes(x=means_1[1], xend = means_1[1], y=0, yend = dnorm(means_1[1], means_1[1], sds_1[1]), colour="A")) + geom_segment(aes(x=ucb_1[1], xend = ucb_1[1], y=0, yend = dnorm(ucb_1[1], means_1[1], sds_1[1]), colour="A"), lty=2) + geom_function(fun = dnorm, args = list(mean=means_1[2],sd=sds_1[2]), aes(colour="B"), n = 201) + geom_segment(aes(x=means_1[2], xend = means_1[2], y=0, yend = dnorm(means_1[2], means_1[2], sds_1[2]), colour="B"))  + geom_segment(aes(x=ucb_1[2], xend = ucb_1[2], y=0, yend = dnorm(ucb_1[2], means_1[2], sds_1[2]), colour="B"), lty=2) + scale_colour_manual(name = "", values = c(A = my_colours[1], B = my_colours[2]), labels=c("option A", "option B")) + theme(legend.position = c(.85, .8))  + myTheme2  + scale_x_continuous(limits=c(-10,10),breaks = c(means_1[1], means_1[2], ucb_1[2], ucb_1[1]), labels = label_parsed(c("mu[A]","mu[B]","plain(UCB)[B]","plain(UCB)[A]"))) + xlab("") + ylab("") + theme(axis.ticks.y = element_blank(), axis.text.y = element_blank(), legend.position=c(.15,.5)) + theme(axis.text.x = element_text(angle = 45, hjust=1, size=8), axis.ticks.x = element_line(), axis.ticks.length.x = unit(4,"pt")) + ylim(0,1.5) # + ggtitle("A") 
+
+epsilon <- .05
+theta <- .8
+pA1 <- data.frame(algorithm=c("ε-greedy", "softmax", "UCB", "Thompson"),
+                  p = c(epsilon, exp(theta*means_1[1])/sum(exp(theta*means_1)), ucb_1[1] > ucb_1[2], 1-pnorm(0, means_1[1] - means_1[2], sqrt(sum(sds_1^2))))) %>%
+  mutate(algorithm=factor(algorithm, levels=c("ε-greedy", "softmax", "Thompson", "UCB"))) 
+
+
+plots[[2]] <- ggplot(pA1, aes(x=algorithm, y=p)) + geom_col() + ylim(c(0,1)) + myTheme2 + ylab("P(option A)") + xlab("") + theme(axis.text.x = element_text(angle = 90, hjust=1))#+ xlab("exploration strategy")
+
+plots[[3]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=means_2[1],sd=sds_2[1]), aes(colour="A"), n=201) + geom_segment(aes(x=means_2[1], xend = means_2[1], y=0, yend = dnorm(means_2[1], means_2[1], sds_2[1]), colour="A")) + geom_segment(aes(x=ucb_2[1], xend = ucb_2[1], y=0, yend = dnorm(ucb_2[1], means_2[1], sds_2[1]), colour="A"), lty=2) + geom_function(fun = dnorm, args = list(mean=means_2[2],sd=sds_2[2]), aes(colour="B"), n = 201) + geom_segment(aes(x=means_2[2], xend = means_2[2], y=0, yend = dnorm(means_2[2], means_2[2], sds_2[2]), colour="B"))  + geom_segment(aes(x=ucb_2[2], xend = ucb_2[2], y=0, yend = dnorm(ucb_2[2], means_2[2], sds_2[2]), colour="B"), lty=2) + scale_colour_manual(name = "", values = c(A = my_colours[1], B = my_colours[2]))  + theme(legend.position = c(.15, .8))  + myTheme2  + scale_x_continuous(limits=c(-10,10),breaks = c(means_2[1], means_2[2], ucb_2[2], ucb_2[1]), labels = label_parsed(c("mu[A]","mu[B]","plain(UCB)[B]","plain(UCB)[A]"))) + xlab("") + ylab("") + theme(axis.ticks.y = element_blank(), axis.text.y = element_blank(), legend.position="none") + theme(axis.text.x = element_text(angle = 45, hjust=1, size=8), axis.ticks.x = element_line(), axis.ticks.length.x = unit(4,"pt")) + ylim(0,1.5) #  + ggtitle("B")
+
+pA2 <- data.frame(algorithm=c("ε-greedy", "softmax", "UCB", "Thompson"),
+                  p = c(epsilon, exp(theta*means_2[1])/sum(exp(theta*means_2)), ucb_2[1] > ucb_2[2], 1-pnorm(0, means_2[1] - means_2[2], sqrt(sum(sds_2^2))))) %>%
+  mutate(algorithm=factor(algorithm, levels=c("ε-greedy", "softmax", "Thompson", "UCB")))
+
+plots[[4]] <- ggplot(pA2, aes(x=algorithm, y=p)) + geom_col() + myTheme2 + ylab("P(option A)") + xlab("") + theme(axis.text.x = element_text(angle = 90, hjust=1)) + ylim(0,1) #+ xlab("exploration strategy")
+
+
+grid.newpage()
+vpa1_ <- viewport(width = 0.5, height = 1, x = 0.25, y = 0.5)  # the larger map
+vpa2_ <- viewport(width = 0.25, height = 0.5, x = 0.375, y = 0.75)  # the inset in upper right
+vpb1_ <- viewport(width = 0.5, height = 1, x = 0.75, y = 0.5)  # the larger map
+vpb2_ <- viewport(width = 0.25, height = 0.5, x = 0.875, y = 0.75)  # the inset in upper right
+print(plots[[1]], vp=vpa1_)
+print(plots[[2]], vp=vpa2_)
+print(plots[[3]], vp=vpb1_)
+print(plots[[4]], vp=vpb2_)
+
+```
+
+---
+
+## Exploration in a restless bandit
+
+```{r kalman-UCB-exploration}
+
+plots <- list()
+
+prior_mean <- 6
+prior_sd <- 3
+obs <- 20
+err_sd <- .8
+posterior_mean <- (obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2)
+posterior_sd <- sqrt((err_sd^2*prior_sd^2)/(err_sd^2 + prior_sd^2))
+plots[[1]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=prior_mean,sd=prior_sd), aes(colour="prior"))  + geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + geom_function(fun = dnorm, args = list(mean=posterior_mean, sd=posterior_sd), aes(colour="posterior"), n=201) + xlim(-2,25) + ylim(0,0.55) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = prior_mean, y = .01, xend = posterior_mean, yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("A")  + theme(legend.position = c(.15, .8))
+
+prior_mean <- 6
+prior_sd <- .8
+obs <- 20
+err_sd <- .8
+plots[[2]] <- ggplot() + geom_function(fun = dnorm, args = list(mean=prior_mean,sd=prior_sd), aes(colour="prior"))  + geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + geom_function(fun = dnorm, args = list(mean=(obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2),sd=sqrt((err_sd^2*prior_sd^2)/(err_sd^2 + prior_sd^2))), aes(colour="posterior"), n=201) + xlim(-2,25) + ylim(0,0.75) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = prior_mean, y = .01, xend = (obs*prior_sd^2 + prior_mean*err_sd^2)/(prior_sd^2 + err_sd^2), yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("B") + theme(legend.position = c(.15, .8))
+
+wdnorm <- function(x,w,mean,sd,log=FALSE) {
+  w*dnorm(x=x, mean=mean, sd=sd, log=log)
+}
+
+mnorm <- function(x, weights, means, sds) {
+  weights[1]*dnorm(x, mean=means[1], sd=sds[1]) + weights[2]*dnorm(x, mean=means[2], sd=sds[2])
+}
+
+prior_means <- c(2, 6)
+prior_probs <- c(.2,.8)
+prior_sds <- c(2,.8)
+obs <- 20
+err_sd <- .8
+plots[[3]] <- ggplot() + geom_function(fun = wdnorm, args = list(w = prior_probs[1], mean=prior_means[1],sd=prior_sds[1]), aes(colour="prior"), lty=3) +  geom_function(fun = wdnorm, args = list(w = prior_probs[2], mean=prior_means[2],sd=prior_sds[2]), aes(colour="prior"), lty=3) + geom_function(fun = mnorm, args = list(weights = prior_probs, means=prior_means,sds=prior_sds), aes(colour="prior")) +
+  geom_function(fun = dnorm, args = list(mean=obs,sd=err_sd), aes(colour="likelihood"), n = 201) + 
+  geom_function(fun = mnorm, args = list(weights = c(prior_probs[1]*dnorm(obs, mean=prior_means[1], sd=prior_sds[1])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)), prior_probs[2]*dnorm(obs, mean=prior_means[2], sd=prior_sds[2])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds))), means=c((obs*prior_sds[1]^2 + prior_means[1]*err_sd^2)/(prior_sds[1]^2 + err_sd^2), (obs*prior_sds[2]^2 + prior_means[2]*err_sd^2)/(prior_sds[2]^2 + err_sd^2)), sds=c(sqrt((err_sd^2*prior_sds[1]^2)/(err_sd^2 + prior_sds[1]^2)), sqrt((err_sd^2*prior_sds[2]^2)/(err_sd^2 + prior_sds[2]^2)))), aes(colour="posterior"), n=201) + 
+  xlim(-2,25) + ylim(0,0.75) + myTheme + theme_void() + scale_colour_manual(name = "", values = c(prior = my_colours[1], likelihood = my_colours[2], posterior = my_colours[3])) + geom_segment(aes(x = sum(prior_probs*prior_means), y = .01, xend = sum(c(prior_probs[1]*dnorm(obs, mean=prior_means[1], sd=prior_sds[1])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)), prior_probs[2]*dnorm(obs, mean=prior_means[2], sd=prior_sds[2])/sum(prior_probs*dnorm(rep(obs,2), mean=prior_means, sd=prior_sds)))*c((obs*prior_sds[1]^2 + prior_means[1]*err_sd^2)/(prior_sds[1]^2 + err_sd^2), (obs*prior_sds[2]^2 + prior_means[2]*err_sd^2)/(prior_sds[2]^2 + err_sd^2))), yend = .01), arrow = arrow(length = unit(0.3, "cm"))) + geom_point(aes(x=x,y=y), data=data.frame(x=obs,y=0), col = my_colours[2]) + ggtitle("C") + theme(legend.position = c(.15, .8))
+
+# 
+# plots[[3]] <- mu %>%
+#   gather(key=option,value=mu,-trial) %>%
+#   mutate(min = mu - 1.96*4, max = mu + 1.96*4) %>%
+#     ggplot(aes(x=trial,y=mu,colour=option, fill=option, ymin=min, ymax=max)) + geom_line() + geom_ribbon(alpha=.4, colour = rgb(0,0,0,0)) + ggtitle("C") + ylab("reward") + xlab("time") + myTheme + theme(legend.position="none") + ggtitle("C")
+
+rl_ucb_sim <- function(rewards,m0,v0,sigma_xi_sq,sigma_epsilon_sq,beta) {
+  nt <- nrow(rewards)
+  no <- ncol(rewards)
+  m <- matrix(m0,ncol=no,nrow=nt+1)
+  v <- matrix(v0,ncol=no,nrow=nt+1)
+  choice <- rep(0,nt)
+  reward <- rep(0.0,nt)
+  for(t in 1:nt) {
+    # choose the option with the highest UCB, breaking ties at random
+    choice[t] <- nnet::which.is.max(rnorm(no, mean=m[t,], sd = sqrt(v[t,] + sigma_xi_sq)))
+    
+    #choice[t] <- nnet::which.is.max(m[t,] + beta*sqrt(v[t,]) + sigma_xi_sq)
+    reward[t] <- rewards[t,choice[t]]
+    # Kalman updates:
+    kt <- rep(0,no)
+    kt[choice[t]] <- (v[t,choice[t]] + sigma_xi_sq)/(v[t,choice[t]] + sigma_xi_sq + sigma_epsilon_sq)
+    m[t+1,] <- m[t,] + kt*(reward[t] - m[t,])
+    v[t+1,] <- (1-kt)*(v[t,] + sigma_xi_sq)
+  }
+  return(list(m=m,v=v,choice=choice,reward=reward))
+}
+plot_sim <- function(sim, mu_dat) { 
+  data.frame(trial=1:nt,option=factor(rep(1:nopt,each=nt)),m=as.numeric(sim$m[-(nt+1),]),mmax=as.numeric(sim$m[-(nt+1),]) + 1.96*sqrt(as.numeric(sim$v[-(nt+1),])),mmin=as.numeric(sim$m[-(nt+1),]) - 1.96*sqrt(as.numeric(sim$v[-(nt+1),]))) %>%
+    ggplot(aes(x=trial,y=m,colour=option,fill=option)) + geom_ribbon(aes(ymin=mmin,ymax=mmax, fill=option),alpha=.1, colour=rgb(0,0,0,0)) + 
+  geom_line() + geom_point(aes(x=trial,y=min(sim$m - 1.96*sqrt(sim$v)),colour=choice,fill=choice),data=data.frame(trial=1:nt,choice=factor(sim$choice))) + xlab("time") + ylab("estimated reward") + geom_line(data = mu_dat, mapping = aes(x=trial, y = mu, colour=option), lty=3) + myTheme2 + theme(legend.position="none")
+}
+
+nopt <- 2
+nt <- 200
+set.seed(9) # set the random seed to replicate these results exactly
+
+mu <- matrix(0.0,nrow=nt,ncol=nopt) # to store the time-varying means
+mu[1,] <- c(-5, 5) # initialize the means for t=1
+for(t in 2:200) {
+  mu[t,] <- mu[t-1,] + rnorm(nopt,mean=0,sd=0) # compute mean at t based on mean at t-1
+}
+rewards <- mu + rnorm(length(mu),mean=0,sd=10) # generate the stochastic rewards
+mu <- as.data.frame(cbind(1:nt,mu))
+rewards <- as.data.frame(cbind(1:nt,rewards))
+colnames(rewards) <- colnames(mu) <- c("trial",paste0("A",1:nopt))
+sim_ucb_100 <- rl_ucb_sim(rewards[,2:3],m0=0.0,v0=1000,sigma_xi_sq=0,sigma_epsilon_sq=10^2,beta=1.96)
+plots[[4]] <- plot_sim(sim_ucb_100, mu %>% gather(key=option,value=mu,-trial) %>% mutate(option = factor(as.numeric(factor(option))))) + ggtitle("D")
+
+
+set.seed(3)
+mu <- matrix(0.0,nrow=nt,ncol=nopt) # to store the time-varying means
+mu[1,] <- c(-20, 20) # initialize the means for t=1
+for(t in 2:200) {
+  mu[t,] <- mu[t-1,] + rnorm(nopt,mean=0,sd=4) # compute mean at t based on mean at t-1
+}
+rewards <- mu + rnorm(length(mu),mean=0,sd=4) # generate the stochastic rewards
+mu <- as.data.frame(cbind(1:nt,mu))
+rewards <- as.data.frame(cbind(1:nt,rewards))
+colnames(rewards) <- colnames(mu) <- c("trial",paste0("A",1:nopt))
+set.seed(8)
+sim_ucb_100 <- rl_ucb_sim(rewards[,2:3],m0=0.0,v0=1000,sigma_xi_sq=16,sigma_epsilon_sq=16,beta=1)
+plots[[5]] <- plot_sim(sim_ucb_100, mu %>% gather(key=option,value=mu,-trial) %>% mutate(option = factor(as.numeric(factor(option))))) #+ ggtitle("E")
+
+
+print(plots[[5]])
+#gridExtra::grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], plots[[5]], layout_matrix = rbind(c(1,1,2,2,3,3), c(4,4,4,5,5,5), c(4,4,4,5,5,5)))
+```

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Uncertainty and Exploration</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Maarten Speekenbrink and Hrvoje Stojic" />
+    <meta name="date" content="2022-07-05" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+    <link rel="stylesheet" href="mycss.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Uncertainty and Exploration
+]
+.author[
+### Maarten Speekenbrink and Hrvoje Stojic
+]
+.institute[
+### University College London and Secondmind
+]
+.date[
+### 2022-07-05
+]
+
+---
+
+
+
+
+
+
+
+
+
+
+class: center middle
+background-image: url("images/catherine-heath-HzliqcgPxnA-unsplash.jpg")
+background-position: center
+background-size: cover
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by Catherine Heath on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+class: center middle
+background-image: url("images/peter-bond-KfvknMhkmw0-unsplash.jpg")
+background-position: center
+background-size: cover
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by Peter Bond on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+class: center middle
+background-image: url("images/keith-davey-1YR-NR2xp6I-unsplash.jpg")
+background-position: center
+background-size: cover
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by keith davey on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+class: center middle
+background-image: url("images/freestocks-nss2eRzQwgw-unsplash.jpg")
+background-position: center
+background-size: cover
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by freestocks on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+class: center middle
+background-image: url("images/yogas-design-rPzEQ7tTRr8-unsplash.jpg")
+background-position: center
+background-size: cover
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by Yogas Design on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+class: inverse center middle
+
+# Exploration-exploitation dilemma
+
+---
+
+## The exploration-exploitation dilemma
+
+Many crossroads in life require a decision between actions with unknown consequences. These can be mundane (take the bus or cycle to work?) or more profound (accept a new job offer or continue in current one?).
+
+There often is an inherent tie between our actions and our experience of the world: We do not know what would have happened if we had taken a different course of action. 
+
+The resulting conundrum is known as the _exploration-exploitation dilemma_ : Should I choose an option which I know I like (exploit), or a more uncertain option such that by learning about it I might improve my future decisions (exploration)?
+
+---
+
+## The Ellsberg game
+
+There are two urns, each with 100 black and red balls. You can choose a colour. If I blindly pick a ball and it has your colour, you will win 10 Euro, if I pick a ball with the other colour, you will loose 5 Euro. Do you want to play, and if so, with which urn?
+
+* Urn A has exactly 50 black and 50 red balls
+* Urn B has 100 black and red balls, but with an unknown number of each
+
+--
+
+Most people prefer Urn A, but why?
+
+--
+
+Uncertainty *aversion*?
+
+---
+
+## The repeated Ellsberg Game
+
+Suppose you are allowed to play the Ellsberg game repeatedly with the exact same urns, and you are allowed to switch colour. Which urn would you choose?
+
+* Urn A has exactly 50 black and 50 red balls
+* Urn B has 100 black and red balls, but with an unknown number of each
+
+--
+
+Choosing Urn B would prove advantageous. Over time, you can learn whether there are more red or black balls in the urn and bet accordingly, winning more often than possible with Urn A!
+
+---
+class: center middle inverse
+background-image: url("images/amit-lahav-HffApi3okak-unsplash.jpg")
+background-position: center
+background-size: contain
+
+# Multi-armed-bandits
+
+&lt;div class="footer"&gt;&lt;span&gt;Photo by Amit Lahav on Unsplash&lt;/span&gt;&lt;/div&gt;
+
+---
+
+
+
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/static-bandit-plot-1.png" width="50%" style="display: block; margin: auto;" /&gt;
+
+---
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/restless-bandit-plot-1.png" width="50%" style="display: block; margin: auto;" /&gt;
+
+---
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/contextual-bandit-plot-1.png" width="50%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Types of uncertainty
+
+* aleatoric uncertainty (risk, and also called "irreducible uncertainty")
+* epistemic uncertainty
+  * estimation uncertainty 
+  * structural uncertainty
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/bayesian-learning-1.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Kalman filter
+
+Assume the rewards `\(R_{j,t}\)` of each option `\(j\)` are governed by the following process:
+`$$\begin{align} R_{j,t} &amp;= \mu_{j,t} + \epsilon_{j,t} &amp; &amp; \epsilon_{j,t} \sim \mathcal{N}(0,\sigma^2_\epsilon) \\ \mu_{j,t} &amp;= \mu_{j,t-1} + \xi_{j,t} &amp;&amp; \xi_{j,t} \sim \mathcal{N}(0,\sigma_\xi^2) \end{align}$$`
+
+Assuming `\(p(\mu_{0,j}) = \mathcal{N}(m_{0,j},v_{0,j})\)`, the posterior distributions of `\(\mu_{t,j}\)` are all Normal: 
+`$$p(\mu_{t,j} | \mathcal{D}_{t}) = \mathcal{N}(m_{t,j},v_{t,j})$$`
+
+where `\(\mathcal{D}_t = (R_1,D_1,\ldots,R_t,D_t)\)` denotes the relevant information up to time `\(t\)`
+
+`$$m_{t,j} = m_{t-1,j} + k_{t,j} (R_t - m_{t-1,j})$$`
+
+`$$k_{t,j} = \begin{cases} \frac{v_{t-1,j} + \sigma_\xi^2}{v_{t-1,j} + \sigma_\xi^2 + \sigma_\epsilon^2} &amp;&amp; \text{ if } C_t = j \\ 0 &amp;&amp; \text{ otherwise } \end{cases}$$`
+
+`$$v_{t,j} = (1 - k_{t,j}) (v_{t-1,j} + \sigma^2_\xi)$$`
+---
+
+## Kalman gain
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/unnamed-chunk-1-1.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+Steady-state gain: `$$k_* = \frac{1}{2} \left(\sqrt{\frac{\sigma^4_\xi}{\sigma^4_\epsilon} + 4 \frac{\sigma^2_\xi}{\sigma^2_\epsilon}} - \frac{\sigma^2_\xi}{\sigma^2_\epsilon} \right)$$`
+
+---
+
+## Kalman gain in a bandit task
+
+Gain increases if a bandit hasn't been played for some time
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/unnamed-chunk-2-1.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+
+---
+class: inverse center middle
+
+# Decision (and exploration) strategies
+
+---
+
+## ε-greedy
+
+With probability `\(1-\epsilon\)`, choose the option with maximum `\(m_{j,t}\)`, otherwise pick a random option with uniform probability.
+
+--
+
+* A simple way to promote exploration, which does not take uncertainty into account.
+* Explores good and bad options equally often.
+
+---
+
+## Softmax
+
+`$$P(D_t = j) = \frac{\exp(\tau \times m_{t-1,j})}{\sum_{k=1}^K \exp(\tau \times m_{t-1,k})}$$`
+
+--
+
+* A simple way to promote exploration, which does not take uncertainty into account. 
+* Smaller values of `\(\tau\)` will result in more random choices. You can view `\(1/\tau\)` as something like the variance of noise around the expected rewards `\(m_{t-1,k}\)`. Crucially, this variance is the same for all options (i.e., not related to uncertainty).
+
+---
+
+## Thompson sampling
+
+For each option `\(j\)`, sample an expected reward 
+`$$\tilde{\mu}_{j,t} \sim P(\mu_{j,t}|\mathcal{D}_t)$$`
+and choose `\(D_t = \arg \max_j \tilde{m}_{j,t}\)`
+
+--
+
+E.g.
+
+`$$\begin{aligned}
+2.1 &amp;= \tilde{\mu}_{1,t} \sim \mathcal{N}(2, 1) \\
+2.8 &amp;= \tilde{\mu}_{2,t} \sim \mathcal{N}(1.5, 1) \\
+1.6 &amp;= \tilde{\mu}_{3,t} \sim \mathcal{N}(1, 1) \\
+1.9 &amp;= \tilde{\mu}_{4,t} \sim \mathcal{N}(0.5, 1) \\
+\end{aligned}$$`
+
+---
+
+## Thompson sampling
+
+For each option `\(j\)`, sample an expected reward 
+`$$\tilde{\mu}_{j,t} \sim P(\mu_{j,t}|\mathcal{D}_t)$$`
+and choose `\(D_t = \arg \max_j \tilde{m}_{j,t}\)`
+
+**Probability of maximum utility (Speekenbrink and Konstantinidis, 2015)**
+
+For each option `\(j\)`, sample a reward 
+`$$\tilde{R}_{j,t} \sim P(R_{j,t}|\mathcal{D}_t)$$`
+and choose `\(D_t = \arg \max_j \tilde{R}_{j,t}\)`
+
+
+---
+
+## Upper-confidence bound (UCB)
+
+`$$P(C_t = j) = \begin{cases} 1 &amp;&amp; \text{if } j = \arg \max m_{k,t-1} + \beta \left(\sqrt{v_{k,t-1} + \sigma^2_\xi}\right) \\
+0 &amp;&amp; \text{otherwise} \end{cases}$$`
+
+--
+
+* Balances exploration and exploitation according to uncertainty ( `\(v_{j, t-1} + \sigma^2_\xi\)` is the prior predictive variance)
+* Can be viewed as an optimistic bonus for uncertain options
+* Setting e.g. `\(\beta = 1.96\)` computes for each option the upper-bound of the 95\% confidence interval.
+
+---
+
+## Exploration strategies
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/exploration-strategies-plot-1.png" width="90%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Exploration in a restless bandit
+
+&lt;img src="uncertainty-and-exploration_files/figure-html/kalman-UCB-exploration-1.png" width="90%" style="display: block; margin: auto;" /&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"navigation": {
+"scroll": false
+}
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
