@@ -1,0 +1,74 @@
+.center {
+  text-align: center;
+}
+
+.wrapping {
+  height: 90%;
+  overflow-y: scroll;
+  max-width: 100%;
+  overflow-x: scroll;
+}
+
+.tiny {
+  font-size: .25rem;
+}
+
+.small {
+  font-size: .5rem;
+}
+
+.smallish {
+  font-size: .75rem;
+}
+
+.big {
+  font-size: 1.5rem;
+}
+
+.bigger {
+  font-size: 2rem;
+}
+
+.biggest {
+  font-size: 3rem;
+}
+
+.center-left {
+  position:          relative;
+  top:               50%;
+  transform:         translateY(50%);
+}
+
+.center-right {
+  position:          relative;
+  top:               50%;
+  transform:         translateY(50%);
+}
+
+.footer {
+  font-size: .4rem;
+  position: abolute; 
+  bottom: 10px;
+}
+
+div.footer {
+    position: absolute;
+    background-color: rgba(214, 210, 196, 0.73);
+    bottom: 10px;
+    left: 0px;
+    height: 1rem;
+    width: 25%;
+}
+
+div.footer span {
+    font-size: .5rem; /*  */ 
+    position: absolute;
+    left: 15px;
+    bottom: 1px;
+}
+
+
+.remark-slide-number {
+  opacity: .2; /* default: 0.5 */
+  font-size: .5rem;
+}
